@@ -8,16 +8,35 @@
     "start": "next start"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@electric-sql/pglite": "^0.5.8",
+    "drizzle-orm": "^0.45.3",
+    "exceljs": "^4.4.0",
+    "framer-motion": "^13.4.1",
+    "imapflow": "^2.0.6",
+    "lucide-react": "^1.47.0",
+    "mailparser": "^3.9.28",
     "next": "16.3.6",
+    "nodemailer": "^10.0.10",
+    "papaparse": "^5.7.0",
+    "postgres": "^3.4.9",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/mailparser": "^3.4.6",
+    "@types/node": "^22.20.4",
+    "@types/nodemailer": "^8.0.2",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "oxlint": "^1.85.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.1"
   }
 }
