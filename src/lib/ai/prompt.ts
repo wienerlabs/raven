@@ -74,7 +74,7 @@ export const examplePitch: Pitch = {
   },
   followUps: [
     {
-      body: 'Geçen hafta Rotaport için hazırladığım durum sorgusu asistanı taslağını paylaşmıştım. Kısaca: mevcut WMS ve kargo verisinden kanıtlı yanıt taslakları ve iki haftalık gölge mod pilotu. Göz atmak isterseniz sayfa aşağıda.',
+      body: 'Birkaç gün önce Rotaport için hazırladığım durum sorgusu asistanı taslağını paylaşmıştım. Kısaca: mevcut WMS ve kargo verisinden kanıtlı yanıt taslakları ve iki haftalık gölge mod pilotu. Göz atmak isterseniz sayfa aşağıda.',
     },
     {
       body: 'Konunun şu an önceliğiniz olmayabileceğini düşünüyorum, bu yüzden son kez yazıyorum. Operasyonda AI gündeme geldiğinde taslak sayfası sizin için açık kalacak; tek tıkla dönüş yapmanız yeterli.',
@@ -174,7 +174,7 @@ Field guide
 - email.body: 2 short paragraphs separated by a blank line. First: the specific problem and the solution in plain words. Second: why it is low risk (integration, shadow mode, data stays with them) and that a personal one page brief is ready. Opening plus body: 60 to 110 words.
 - email.cta: one sentence proposing a 20 minute call to shape the pilot, easy to say yes to.
 - email.ps: one sentence with a concrete detail that makes the brief worth opening.
-- followUps[0]: day 3 nudge, 2 to 3 sentences, recaps the idea in one line, points to the brief. No greeting, no guilt.
+- followUps[0]: day 3 nudge, 2 to 3 sentences, recaps the idea in one line, points to the brief. It may land in the same week as the first email, so say "birkaç gün önce" or "a few days ago", never "geçen hafta" or "last week". No greeting, no guilt.
 - followUps[1]: day 7 polite close, 2 to 3 sentences, gives an easy out, says the brief stays available. No greeting.
 - whatsapp: 2 to 4 sentences. Greeting plus the sender's first name and company, one line on the solution, then {link}, then a light ask. Under 500 characters.
 - landing.headline: includes the company name, for example "{Company} için {solution name}" or a sharper outcome headline.

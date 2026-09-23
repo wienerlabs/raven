@@ -21,7 +21,7 @@ describe('email rendering', () => {
     expect(email.text).toContain('Size özel taslak: https://raven.example.com/r/AbCdEf1234?m=tok_1234567890abcdef')
     expect(email.headers['List-Unsubscribe']).toBe('<https://raven.example.com/api/unsubscribe/tok_1234567890abcdef>, <mailto:baturalp@example.com?subject=unsubscribe>')
     expect(email.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click')
-    expect(email.html).not.toMatch(/[–—]/)
+    expect(email.html).not.toMatch(/[\u2013\u2014]/)
     expect(email.html).not.toContain('/api/track/open/')
   })
 
@@ -41,7 +41,7 @@ describe('email rendering', () => {
   it('threads follow-ups under the first subject', () => {
     const email = renderEmail({ ...base, pitch: pitchFor('Mert', 'Rotaport'), message: { token: 'tok_1234567890abcdef', step: 1, variant: 'a' }, firstSubject: 'Rotaport için kısa bir fikir' })
     expect(email.subject).toBe('Re: Rotaport için kısa bir fikir')
-    expect(email.text).toContain('Geçen hafta Rotaport için')
+    expect(email.text).toContain('Birkaç gün önce Rotaport için')
   })
 
   it('adds the open pixel only when tracking is enabled', () => {

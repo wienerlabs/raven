@@ -45,9 +45,9 @@ function merge(stored: unknown): AppSettings {
   const merged = {
     ...defaultSettings,
     ...value,
-    sender: { ...defaultSettings.sender, ...(value.sender ?? {}) },
-    legal: { ...defaultSettings.legal, ...(value.legal ?? {}) },
-    tracking: { ...defaultSettings.tracking, ...(value.tracking ?? {}) },
+    sender: { ...defaultSettings.sender, ...value.sender },
+    legal: { ...defaultSettings.legal, ...value.legal },
+    tracking: { ...defaultSettings.tracking, ...value.tracking },
   }
   const parsed = appSettingsSchema.safeParse(merged)
   return parsed.success ? parsed.data : defaultSettings

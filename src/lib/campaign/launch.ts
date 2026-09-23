@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { Database } from '@/lib/db'
 import { campaigns, contacts, messages, pitches, suppressions, type CampaignConfig } from '@/lib/db/schema'
 import { activeSenders } from '@/lib/channels/email'
@@ -39,7 +39,7 @@ async function usageByDay(db: Database, senders: SenderConfig[], config: Campaig
           messages.senderId,
           senders.map((sender) => sender.id),
         ),
-        gte(sql`coalesce(${messages.sentAt}, ${messages.scheduledAt})`, new Date(now.getTime() - 36 * 3600 * 1000)),
+        sql`coalesce(${messages.sentAt}, ${messages.scheduledAt}) >= ${new Date(now.getTime() - 36 * 3600 * 1000).toISOString()}::timestamptz`,
       ),
     )
   const usage: Record<string, Record<string, number>> = {}
@@ -174,10 +174,10 @@ export async function cancelCampaignQueue(db: Database, campaignId: string): Pro
   return rows.length
 }
 
-export async function queueTestEmail(db: Database, contactId: string, recipient: string, step = 0): Promise<string> {
+export async function queueTestEmail(db: Database, contactId: string, recipient: string, step = 0): Promise<{ id: string; token: string }> {
   const token = randomToken(16)
   const sender = activeSenders()[0]
-  await db.insert(messages).values({
+  const inserted = await db.insert(messages).values({
     token,
     campaignId: null,
     contactId,
@@ -189,8 +189,8 @@ export async function queueTestEmail(db: Database, contactId: string, recipient:
     isTest: true,
     testRecipient: recipient,
     scheduledAt: new Date(Date.now() - 1000),
-  })
-  return token
+  }).returning({ id: messages.id })
+  return { id: inserted[0].id, token }
 }
 
 export async function nextScheduled(db: Database, campaignId: string): Promise<Date | null> {

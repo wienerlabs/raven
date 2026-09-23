@@ -43,3 +43,6 @@ next-env.d.ts
 .data/
 *.local.json
 contacts-private/
+AGENTS.md
+CLAUDE.md
+!.env.example

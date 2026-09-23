@@ -25,9 +25,10 @@ export const knownFlags = [
   'crypto-company',
   'sanctions-review',
   'jurisdiction-review',
+  'review-cleared',
 ] as const
 
-const dashPattern = /[‒–—―−]/
+const dashPattern = /[\u2012\u2013\u2014\u2015\u2212]/
 const emojiPattern = /\p{Extended_Pictographic}/u
 const placeholderPattern = /\[[^\]]{2,40}\]|lorem ipsum|\{\{|\}\}/i
 const greetingOpeners = /^(merhaba|sayın|hi|hello|dear|selam)\b/i
@@ -144,11 +145,12 @@ export function checkPitch(input: unknown, context: PitchContext): PitchCheck {
   if (honorifics.test(pitch.person.salutation)) errors.push('person.salutation must not use gendered honorifics')
   const opener = pitch.language === 'tr' ? /^(Merhaba|Sayın) / : /^(Hi|Hello|Dear) /
   if (!opener.test(pitch.person.salutation)) errors.push(`person.salutation must start with ${pitch.language === 'tr' ? '"Merhaba " or "Sayın "' : '"Hi ", "Hello " or "Dear "'}`)
-  if (!/,$/.test(pitch.person.salutation)) errors.push('person.salutation must end with a comma')
+  if (!pitch.person.salutation.endsWith(',')) errors.push('person.salutation must end with a comma')
 
   for (const [index, followUp] of pitch.followUps.entries()) {
     if (greetingOpeners.test(followUp.body.trim())) errors.push(`followUps[${index}]: do not start with a greeting, the renderer adds it`)
   }
+  if (/(geçen hafta|last week)/i.test(pitch.followUps[0].body)) warnings.push('followUps[0]: day 3 follow up may land in the same week, avoid "geçen hafta" or "last week"')
   for (const field of ['subject', 'subjectAlt'] as const) {
     if (/^(re|fw|fwd|ynt|ilt)\s*:/i.test(pitch.email[field])) errors.push(`email.${field}: reply or forward prefixes are deceptive`)
   }

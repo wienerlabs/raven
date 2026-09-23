@@ -142,3 +142,9 @@ export async function verifySmtp(sender: SenderConfig): Promise<{ ok: boolean; e
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
+
+export function emailProviderLabel(kind: EmailProvider = emailProvider()): string {
+  if (kind === 'smtp') return 'SMTP (kendi posta kutunuz)'
+  if (kind === 'resend') return 'Resend API'
+  return 'Konsol modu (gerçek gönderim yok)'
+}

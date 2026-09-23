@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
-import { beforeEach, describe, expect, it } from 'vitest'
-import { createPgliteDb, type Database } from '@/lib/db'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { Database } from '@/lib/db'
 import { campaigns, contacts, messages, responses, suppressions } from '@/lib/db/schema'
 import { importContacts, rowsFromMatrix } from '@/lib/contacts/import'
 import { savePitch } from '@/lib/pitch/store'
@@ -10,6 +10,7 @@ import { recordResponse, suppress } from '@/lib/campaign/state'
 import { handleInbound } from '@/lib/inbox/sync'
 import { inWindow, localParts } from '@/lib/campaign/schedule'
 import type { EmailTransport, OutgoingEmail } from '@/lib/channels/email'
+import { openTestDb, type TestDatabase } from './db'
 import { pitchFor } from './fixtures'
 
 const senders = [{ id: 'main', name: 'Baturalp Güvenç', email: 'baturalp@wienerlabs.test', dailyLimit: 100 }]
@@ -41,9 +42,15 @@ async function seed(db: Database, count: number) {
 
 describe('campaign lifecycle', () => {
   let db: Database
+  let handle: TestDatabase
 
   beforeEach(async () => {
-    db = await createPgliteDb('memory')
+    handle = await openTestDb()
+    db = handle.db
+  })
+
+  afterEach(async () => {
+    await handle.close()
   })
 
   it('launches, sends inside the window, threads follow-ups and stops on reply', async () => {

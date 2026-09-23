@@ -129,7 +129,7 @@ export async function parseSpreadsheet(data: ArrayBuffer | Uint8Array, filename:
   if (lower.endsWith('.csv') || lower.endsWith('.tsv') || lower.endsWith('.txt')) {
     const Papa = (await import('papaparse')).default
     const text = new TextDecoder('utf-8').decode(data instanceof Uint8Array ? data : new Uint8Array(data))
-    const parsed = Papa.parse<string[]>(text.replace(/^﻿/, ''), { skipEmptyLines: true })
+    const parsed = Papa.parse<string[]>(text.replace(/^\uFEFF/, ''), { skipEmptyLines: true })
     return rowsFromMatrix(parsed.data)
   }
   const ExcelJS = (await import('exceljs')).default

@@ -32,7 +32,6 @@ const palette = {
   accent: '#d9dbfc',
   accentStrong: '#c2c6fa',
   accentSoft: '#eef0ff',
-  chart: '#7b81ee',
 }
 
 const fontStack = "'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
@@ -137,7 +136,7 @@ function solutionBlock(pitch: Pitch): string {
   const bullets = pitch.solution.capabilities
     .map(
       (item) =>
-        `<tr><td width="18" style="vertical-align:top;padding:8px 0 0;"><div style="width:7px;height:7px;border-radius:7px;background:${palette.chart};font-size:0;line-height:0;">&nbsp;</div></td><td style="vertical-align:top;padding:2px 0 4px;font-family:${fontStack};font-size:14px;line-height:22px;font-weight:300;color:${palette.body};">${escapeHtml(item)}</td></tr>`,
+        `<tr><td width="18" style="vertical-align:top;padding:9px 0 0;"><div style="width:6px;height:6px;border-radius:6px;background:${palette.ink};font-size:0;line-height:0;">&nbsp;</div></td><td style="vertical-align:top;padding:2px 0 4px;font-family:${fontStack};font-size:14px;line-height:22px;font-weight:300;color:${palette.body};">${escapeHtml(item)}</td></tr>`,
     )
     .join('')
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 24px;"><tr><td style="background:${palette.accentSoft};border:1px solid ${palette.accent};border-radius:20px;padding:22px 24px 18px;">
@@ -153,7 +152,7 @@ export function subjectFor(pitch: Pitch, variant: 'a' | 'b'): string {
 }
 
 export function renderEmail(input: RenderInput, trackOpens = input.settings.tracking.opens): RenderedEmail {
-  const { pitch, message } = input
+  const { message } = input
   const links = buildLinks(input.baseUrl, input.contact.slug, message.token)
   const headers: Record<string, string> = {
     'List-Unsubscribe': `<${links.unsubscribeOneClick}>, <mailto:${input.replyTo}?subject=unsubscribe>`,

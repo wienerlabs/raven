@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { sessionSecret } from '@/lib/env'
+import { SESSION_COOKIE } from './cookie-name'
 import { createSessionValue, verifySessionValue } from './tokens'
 
-export const SESSION_COOKIE = 'raven_session'
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14
 
 export async function isAdmin(): Promise<boolean> {

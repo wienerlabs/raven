@@ -18,6 +18,7 @@ export interface DispatchOptions {
   baseUrl?: string
   whatsappSend?: (input: TemplateSend) => Promise<WhatsappSendResult>
   random?: () => number
+  messageIds?: string[]
 }
 
 export interface DispatchReport {
@@ -43,13 +44,20 @@ export async function recoverStuck(db: Database, now: Date): Promise<number> {
   return rows.length
 }
 
-export async function claimDue(db: Database, now: Date, limit: number): Promise<MessageRow[]> {
+export async function claimDue(db: Database, now: Date, limit: number, messageIds?: string[]): Promise<MessageRow[]> {
   return db.transaction(async (tx) => {
     const rows = await tx
       .select({ id: messages.id })
       .from(messages)
       .leftJoin(campaigns, eq(campaigns.id, messages.campaignId))
-      .where(and(eq(messages.status, 'scheduled'), lte(messages.scheduledAt, now), or(isNull(messages.campaignId), eq(campaigns.status, 'running'))))
+      .where(
+        and(
+          eq(messages.status, 'scheduled'),
+          lte(messages.scheduledAt, now),
+          or(isNull(messages.campaignId), eq(campaigns.status, 'running')),
+          messageIds?.length ? inArray(messages.id, messageIds) : undefined,
+        ),
+      )
       .orderBy(asc(messages.scheduledAt))
       .limit(limit)
       .for('update', { of: messages, skipLocked: true })
@@ -122,7 +130,7 @@ export async function dispatchDue(db: Database, options: DispatchOptions = {}): 
   const whatsappSend = options.whatsappSend ?? sendWhatsappTemplate
   const report: DispatchReport = { claimed: 0, sent: 0, failed: 0, rescheduled: 0, cancelled: 0, paused: [], errors: [] }
   await recoverStuck(db, now)
-  const claimed = await claimDue(db, now, options.limit ?? 10)
+  const claimed = await claimDue(db, now, options.limit ?? 10, options.messageIds)
   report.claimed = claimed.length
   if (claimed.length === 0) return report
   const settings = await getSettings(db)

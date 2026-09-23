@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assessCompliance } from '@/lib/contacts/compliance'
+import { assessCompliance, holdReasonFor, needsHold } from '@/lib/contacts/compliance'
 import { rowsFromMatrix } from '@/lib/contacts/import'
 import { cleanNamePart, nameFromEmail, normalizeFirstName, normalizeLastName } from '@/lib/contacts/names'
 import { formatPhone, isTurkishMobile, normalizePhone } from '@/lib/contacts/phone'
@@ -66,5 +66,12 @@ describe('compliance', () => {
     const shared = assessCompliance({ email: 'istanbul@ornekharita.com.tr', domain: 'ornekharita.com.tr', company: 'Örnek Harita', title: 'CTO' })
     expect(shared.flags).toContain('generic-mailbox')
     expect(shared.holdReason).toBeNull()
+  })
+
+  it('keeps holds until a person clears the review', () => {
+    expect(needsHold(['sanctions-review'])).toBe(true)
+    expect(needsHold(['sanctions-review', 'review-cleared'])).toBe(false)
+    expect(holdReasonFor(['sanctions-review', 'review-cleared'])).toBeNull()
+    expect(needsHold(['generic-mailbox'])).toBe(false)
   })
 })

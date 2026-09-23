@@ -19,7 +19,7 @@ describe('pitch validation', () => {
   })
 
   it('rejects em dashes anywhere', () => {
-    const result = checkPitch(variant((pitch) => (pitch.email.body = `${pitch.email.body} — kesin`)), context)
+    const result = checkPitch(variant((pitch) => (pitch.email.body = `${pitch.email.body} \u2014 kesin`)), context)
     expect(result.ok).toBe(false)
     expect(result.errors.join(' ')).toContain('em dash')
   })

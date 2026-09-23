@@ -5,7 +5,18 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "vercel-build": "tsx scripts/migrate.ts && next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint src scripts tests",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "import:contacts": "tsx scripts/import-contacts.ts",
+    "import:pitches": "tsx scripts/import-pitches.ts",
+    "pitches:validate": "tsx scripts/validate-pitches.ts",
+    "generate": "tsx scripts/generate.ts",
+    "worker": "tsx scripts/worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -38,5 +49,8 @@
     "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=22.9"
   }
 }

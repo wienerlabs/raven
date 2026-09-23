@@ -1,26 +1,156 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-sora), "Sora", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-ink: #111111;
+  --color-body: #2b2b2b;
+  --color-mute: #6b6b6b;
+  --color-line: #e6e6e6;
+  --color-soft: #f6f6f6;
+  --color-surface: #ffffff;
+  --color-canvas: #ffffff;
+  --color-accent: #d9dbfc;
+  --color-accent-strong: #c2c6fa;
+  --color-accent-soft: #eef0ff;
+  --color-on-accent: #111111;
+  --color-chart: #7b81ee;
+  --color-chart-down: #9a9aa5;
+  --radius-card: 1.5rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+html.dark {
+  --color-ink: #f2f2f5;
+  --color-body: #d9d9df;
+  --color-mute: #9a9aa5;
+  --color-line: #2b2b33;
+  --color-soft: #1a1a20;
+  --color-surface: #131318;
+  --color-canvas: #0b0b0e;
+  --color-accent: #d9dbfc;
+  --color-accent-strong: #e4e6fd;
+  --color-accent-soft: #23254a;
+  --color-on-accent: #111111;
+  --color-chart: #d9dbfc;
+  --color-chart-down: #6b6b78;
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+
+.light-scope {
+  --color-ink: #111111;
+  --color-body: #2b2b2b;
+  --color-mute: #6b6b6b;
+  --color-line: #e6e6e6;
+  --color-soft: #f6f6f6;
+  --color-surface: #ffffff;
+  --color-canvas: #ffffff;
+  --color-accent: #d9dbfc;
+  --color-accent-strong: #c2c6fa;
+  --color-accent-soft: #eef0ff;
+  --color-on-accent: #111111;
+  --color-chart: #7b81ee;
+  color-scheme: light;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.raven-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url("/bg/gradient.jpg") center / cover no-repeat;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+@keyframes raven-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.4; }
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-accent-strong);
+  box-shadow: 0 0 0 1px var(--color-line);
+  animation: raven-pulse 1.6s ease-in-out infinite;
+}
+
+* {
+  font-weight: 300;
+}
+
+h1, h2, h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
+
+@layer components {
+  .card {
+    @apply rounded-3xl border border-line bg-surface p-6 shadow-[0_1px_2px_rgba(0,0,0,0.03)];
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-accent bg-accent px-5 py-2.5 text-sm text-on-accent transition hover:border-accent-strong hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-accent disabled:hover:bg-accent;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-surface px-5 py-2.5 text-sm text-ink transition hover:border-accent-strong hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-surface;
+  }
+  .btn-sm {
+    @apply px-3.5 py-1.5 text-xs;
+  }
+  .input {
+    @apply w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base text-ink outline-none transition placeholder:text-mute focus:border-accent-strong focus:ring-2 focus:ring-accent-soft;
+  }
+  .textarea {
+    @apply w-full rounded-2xl border border-line bg-surface px-4 py-3 text-sm leading-6 text-ink outline-none transition placeholder:text-mute focus:border-accent-strong focus:ring-2 focus:ring-accent-soft;
+  }
+  .select {
+    @apply w-full appearance-none rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-soft;
+  }
+  .pill {
+    @apply inline-flex items-center rounded-full border border-line bg-soft px-3 py-1 text-xs text-mute;
+  }
+  .label {
+    @apply mb-1.5 block text-xs text-mute;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-mute transition hover:border-accent-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .chip-active {
+    @apply border-accent bg-accent text-on-accent hover:text-on-accent;
+  }
+  .row-link {
+    @apply transition hover:bg-soft;
+  }
 }
