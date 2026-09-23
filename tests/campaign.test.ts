@@ -22,9 +22,9 @@ function fakeTransport(fail?: (email: OutgoingEmail) => boolean) {
   const transport: EmailTransport = {
     kind: 'smtp',
     async send(email) {
-      if (fail?.(email)) return { providerId: null, permanentFailure: true, error: '550 5.1.1 user unknown' }
+      if (fail?.(email)) return { providerId: null, permanentFailure: true, retryable: false, error: '550 5.1.1 user unknown' }
       sent.push(email)
-      return { providerId: `provider-${sent.length}`, permanentFailure: false, error: null }
+      return { providerId: `provider-${sent.length}`, permanentFailure: false, retryable: false, error: null }
     },
   }
   return { sent, transport }

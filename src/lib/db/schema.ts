@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
 import type { Pitch } from '@/lib/pitch/schema'
 
@@ -144,6 +145,9 @@ export const messages = pgTable(
   },
   (table) => [
     uniqueIndex('messages_token_unique').on(table.token),
+    uniqueIndex('messages_campaign_step_unique')
+      .on(table.campaignId, table.contactId, table.step, table.channel)
+      .where(sql`${table.isTest} = false and ${table.status} <> 'cancelled'`),
     index('messages_due_idx').on(table.status, table.scheduledAt),
     index('messages_contact_idx').on(table.contactId),
     index('messages_campaign_idx').on(table.campaignId),
@@ -196,6 +200,12 @@ export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').$type<Record<string, unknown>>().notNull(),
   updatedAt: updatedAt(),
+})
+
+export const loginAttempts = pgTable('login_attempts', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull().default(0),
+  resetAt: timestamp('reset_at', { withTimezone: true }).notNull(),
 })
 
 export const locks = pgTable('locks', {

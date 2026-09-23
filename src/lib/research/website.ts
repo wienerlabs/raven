@@ -1,4 +1,5 @@
-import { resolveMx } from 'node:dns/promises'
+import { lookup, resolveMx } from 'node:dns/promises'
+import { isIP } from 'node:net'
 
 export interface WebsiteSnapshot {
   url: string | null
@@ -52,31 +53,101 @@ export function extractSnapshot(html: string, url: string): WebsiteSnapshot {
 
 export function isPublicDomain(domain: string): boolean {
   if (!/^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(domain)) return false
-  return !/(^|\.)(localhost|local|internal|lan|home|corp)$/i.test(domain)
+  return !/(^|\.)(localhost|local|internal|lan|home|corp|arpa)$/i.test(domain)
+}
+
+export function isPrivateAddress(address: string): boolean {
+  const family = isIP(address)
+  if (family === 4) {
+    const [a, b] = address.split('.').map(Number)
+    return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 192 && b === 0) || (a === 198 && (b === 18 || b === 19))
+  }
+  if (family === 6) {
+    const lower = address.toLowerCase()
+    if (lower === '::' || lower === '::1') return true
+    if (lower.startsWith('::ffff:')) return isPrivateAddress(lower.slice(7))
+    return /^(fc|fd|fe8|fe9|fea|feb|ff)/.test(lower)
+  }
+  return true
+}
+
+async function hostIsPublic(hostname: string): Promise<boolean> {
+  if (isIP(hostname) || !isPublicDomain(hostname)) return false
+  try {
+    const records = await lookup(hostname, { all: true, verbatim: true })
+    return records.length > 0 && records.every((record) => !isPrivateAddress(record.address))
+  } catch {
+    return false
+  }
+}
+
+async function readLimited(response: Response, limit: number): Promise<string> {
+  const reader = response.body?.getReader()
+  if (!reader) return ''
+  const chunks: Uint8Array[] = []
+  let size = 0
+  while (size < limit) {
+    const { done, value } = await reader.read()
+    if (done || !value) break
+    chunks.push(value)
+    size += value.byteLength
+  }
+  await reader.cancel().catch(() => undefined)
+  const merged = new Uint8Array(Math.min(size, limit))
+  let offset = 0
+  for (const chunk of chunks) {
+    const slice = chunk.subarray(0, Math.max(0, merged.length - offset))
+    merged.set(slice, offset)
+    offset += slice.byteLength
+    if (offset >= merged.length) break
+  }
+  return new TextDecoder('utf-8').decode(merged)
+}
+
+const MAX_REDIRECTS = 4
+const MAX_BYTES = 1_500_000
+
+async function fetchPublicHtml(start: string, timeoutMs: number): Promise<{ html: string; url: string } | { error: string }> {
+  let current = new URL(start)
+  const deadline = AbortSignal.timeout(timeoutMs)
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (current.protocol !== 'https:' && current.protocol !== 'http:') return { error: 'unsupported protocol' }
+    if (current.port && current.port !== '80' && current.port !== '443') return { error: 'unsupported port' }
+    if (!(await hostIsPublic(current.hostname))) return { error: 'host is not public' }
+    const response = await fetch(current, {
+      redirect: 'manual',
+      signal: deadline,
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; RavenResearch/1.0; +https://wienerlabs.xyz)', accept: 'text/html,application/xhtml+xml' },
+    })
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location')
+      await response.body?.cancel().catch(() => undefined)
+      if (!location) return { error: `HTTP ${response.status} without location` }
+      current = new URL(location, current)
+      continue
+    }
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined)
+      return { error: `HTTP ${response.status}` }
+    }
+    const type = response.headers.get('content-type') ?? ''
+    if (!type.includes('html')) {
+      await response.body?.cancel().catch(() => undefined)
+      return { error: `unexpected content type ${type}` }
+    }
+    return { html: await readLimited(response, MAX_BYTES), url: current.toString() }
+  }
+  return { error: 'too many redirects' }
 }
 
 export async function fetchWebsite(domain: string, timeoutMs = 9000): Promise<WebsiteSnapshot> {
   if (!isPublicDomain(domain)) return { url: null, title: null, description: null, excerpt: null, error: 'invalid domain' }
-  const candidates = [`https://${domain}`, `https://www.${domain}`]
   let lastError = 'unreachable'
-  for (const url of candidates) {
+  for (const url of [`https://${domain}`, `https://www.${domain}`]) {
     try {
-      const response = await fetch(url, {
-        redirect: 'follow',
-        signal: AbortSignal.timeout(timeoutMs),
-        headers: { 'user-agent': 'Mozilla/5.0 (compatible; RavenResearch/1.0; +https://wienerlabs.xyz)', accept: 'text/html,application/xhtml+xml' },
-      })
-      if (!response.ok) {
-        lastError = `HTTP ${response.status}`
-        continue
-      }
-      const type = response.headers.get('content-type') ?? ''
-      if (!type.includes('html')) {
-        lastError = `unexpected content type ${type}`
-        continue
-      }
-      const html = (await response.text()).slice(0, 1_500_000)
-      return extractSnapshot(html, response.url || url)
+      const outcome = await fetchPublicHtml(url, timeoutMs)
+      if ('html' in outcome) return extractSnapshot(outcome.html, outcome.url)
+      lastError = outcome.error
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error)
     }

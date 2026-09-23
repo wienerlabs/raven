@@ -7,7 +7,8 @@ import { getDb } from '@/lib/db'
 import { contacts, pitches, type ReviewStatus } from '@/lib/db/schema'
 import { requireAdmin } from '@/lib/security/session'
 import { needsHold, REVIEW_CLEARED } from '@/lib/contacts/compliance'
-import { recordEvent } from '@/lib/campaign/state'
+import { cancelPending, recordEvent, suppress } from '@/lib/campaign/state'
+import { freeMailDomains } from '@/lib/research/website'
 import { normalizePhone } from '@/lib/contacts/phone'
 import { checkPitch } from '@/lib/pitch/validate'
 import { savePitch } from '@/lib/pitch/store'
@@ -58,6 +59,26 @@ export async function bulkUpdate(ids: string[], action: 'approve' | 'pending' | 
     .where(inArray(contacts.id, parsed.data))
   refresh()
   return { ok: true, message: `${parsed.data.length} kişi güncellendi.` }
+}
+
+export async function suppressDomains(ids: string[]): Promise<ActionResult> {
+  await requireAdmin()
+  const parsed = idsSchema.safeParse(ids)
+  if (!parsed.success) return { ok: false, message: 'Geçerli kişi seçilmedi.' }
+  const db = await getDb()
+  const rows = await db.select({ domain: contacts.domain }).from(contacts).where(inArray(contacts.id, parsed.data))
+  const blocked = [...new Set(rows.map((row) => row.domain).filter((domain): domain is string => Boolean(domain) && !freeMailDomains.has(domain as string)))]
+  let affectedCount = 0
+  for (const domain of blocked) {
+    await suppress(db, { value: domain, kind: 'domain', reason: 'manual' })
+    const affected = await db.select({ id: contacts.id }).from(contacts).where(eq(contacts.domain, domain))
+    for (const contact of affected) await cancelPending(db, contact.id, 'suppressed: domain')
+    await db.update(contacts).set({ reviewStatus: 'excluded', holdReason: `${domain} alan adı engellendi`, updatedAt: new Date() }).where(eq(contacts.domain, domain))
+    affectedCount += affected.length
+  }
+  refresh()
+  if (blocked.length === 0) return { ok: false, message: 'Seçilen kişilerde engellenebilecek kurumsal alan adı yok.' }
+  return { ok: true, message: `${blocked.length} alan adı engellendi, ${affectedCount} kişi hariç tutuldu ve bekleyen mesajları iptal edildi.` }
 }
 
 export async function releaseHold(id: string, confirmation: string): Promise<ActionResult> {
@@ -246,6 +267,7 @@ export async function sendTest(id: string, _: ActionResult | null, formData: For
   const queued = await queueTestEmail(db, id, recipient.data, step)
   const report = await dispatchDue(db, { limit: 1, messageIds: [queued.id] })
   refresh(id)
+  if (report.busy) return { ok: true, message: 'Gönderim motoru şu an meşgul; test e-postası sıraya alındı ve bir sonraki turda gidecek.' }
   if (report.errors.length) return { ok: false, message: `Gönderilemedi: ${report.errors[0]}` }
   return { ok: true, message: `Test e-postası ${recipient.data} adresine gönderildi.` }
 }

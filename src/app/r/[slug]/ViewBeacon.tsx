@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 
 export function ViewBeacon({ slug, token, source }: { slug: string; token: string | null; source: 'email' | 'whatsapp' }) {
   useEffect(() => {
+    if (navigator.webdriver) return
     const started = Date.now()
     let sent = false
     const send = () => {

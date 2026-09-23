@@ -43,12 +43,15 @@ export function templatePayload(input: TemplateSend, templateName: string) {
 export interface WhatsappSendResult {
   providerId: string | null
   permanentFailure: boolean
+  retryable: boolean
   error: string | null
 }
 
+const unsentNetworkCodes = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'])
+
 export async function sendWhatsappTemplate(input: TemplateSend): Promise<WhatsappSendResult> {
   const config = whatsappCloud()
-  if (!config.token || !config.phoneNumberId) return { providerId: null, permanentFailure: false, error: 'WhatsApp Cloud API is not configured' }
+  if (!config.token || !config.phoneNumberId) return { providerId: null, permanentFailure: false, retryable: false, error: 'WhatsApp Cloud API is not configured' }
   try {
     const response = await fetch(`https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`, {
       method: 'POST',
@@ -58,11 +61,12 @@ export async function sendWhatsappTemplate(input: TemplateSend): Promise<Whatsap
     })
     const payload = (await response.json().catch(() => ({}))) as { messages?: Array<{ id: string }>; error?: { message?: string; code?: number } }
     const id = payload.messages?.[0]?.id
-    if (response.ok && id) return { providerId: id, permanentFailure: false, error: null }
+    if (response.ok && id) return { providerId: id, permanentFailure: false, retryable: false, error: null }
     const permanent = response.status >= 400 && response.status < 500 && response.status !== 429
-    return { providerId: null, permanentFailure: permanent, error: `whatsapp ${response.status}: ${payload.error?.message ?? 'unknown error'}` }
+    return { providerId: null, permanentFailure: permanent, retryable: response.status === 429 || response.status >= 500, error: `whatsapp ${response.status}: ${payload.error?.message ?? 'unknown error'}` }
   } catch (error) {
-    return { providerId: null, permanentFailure: false, error: error instanceof Error ? error.message : String(error) }
+    const cause = (error as { cause?: { code?: string } }).cause
+    return { providerId: null, permanentFailure: false, retryable: Boolean(cause?.code && unsentNetworkCodes.has(cause.code)), error: error instanceof Error ? error.message : String(error) }
   }
 }
 

@@ -4,6 +4,7 @@ import { campaigns, contacts, messages, pitches, suppressions, type CampaignConf
 import { activeSenders } from '@/lib/channels/email'
 import { whatsappMode, type SenderConfig } from '@/lib/env'
 import { randomToken } from '@/lib/security/tokens'
+import { withLease } from './lease'
 import { defaultCampaignConfig, localDayKey, nextWindowStart, planSlots } from './schedule'
 
 export async function ensureCampaign(db: Database) {
@@ -18,6 +19,7 @@ export async function updateCampaignConfig(db: Database, campaignId: string, con
 }
 
 export interface LaunchSummary {
+  busy: boolean
   queuedEmail: number
   queuedWhatsapp: number
   manualWhatsapp: number
@@ -53,11 +55,15 @@ async function usageByDay(db: Database, senders: SenderConfig[], config: Campaig
   return usage
 }
 
-export async function launchCampaign(
-  db: Database,
-  campaignId: string,
-  options: { now?: Date; senders?: SenderConfig[]; contactIds?: string[]; random?: () => number } = {},
-): Promise<LaunchSummary> {
+type LaunchOptions = { now?: Date; senders?: SenderConfig[]; contactIds?: string[]; random?: () => number }
+
+export async function launchCampaign(db: Database, campaignId: string, options: LaunchOptions = {}): Promise<LaunchSummary> {
+  const outcome = await withLease(db, `launch:${campaignId}`, 120_000, () => queueCampaign(db, campaignId, options))
+  if (!outcome.acquired) return { busy: true, queuedEmail: 0, queuedWhatsapp: 0, manualWhatsapp: 0, skipped: 0, firstAt: null, lastAt: null }
+  return outcome.value
+}
+
+async function queueCampaign(db: Database, campaignId: string, options: LaunchOptions): Promise<LaunchSummary> {
   const now = options.now ?? new Date()
   const random = options.random ?? Math.random
   const senders = options.senders ?? activeSenders()
@@ -137,23 +143,29 @@ export async function launchCampaign(
       whatsappCursor = nextWindowStart(new Date(whatsappCursor.getTime() + (config.minGapSeconds + random() * (config.maxGapSeconds - config.minGapSeconds)) * 1000), config)
     } else manualWhatsapp += 1
   }
-  if (rows.length > 0) {
-    for (let index = 0; index < rows.length; index += 200) await db.insert(messages).values(rows.slice(index, index + 200))
+  const insertedContacts = new Set<string>()
+  for (let index = 0; index < rows.length; index += 200) {
+    const inserted = await db.insert(messages).values(rows.slice(index, index + 200)).onConflictDoNothing().returning({ contactId: messages.contactId, channel: messages.channel, scheduledAt: messages.scheduledAt })
+    for (const row of inserted) insertedContacts.add(row.contactId)
+  }
+  if (insertedContacts.size > 0) {
     await db
       .update(contacts)
       .set({ stage: 'queued', updatedAt: now })
-      .where(inArray(contacts.id, rows.map((row) => row.contactId)))
+      .where(inArray(contacts.id, [...insertedContacts]))
   }
   await db
     .update(campaigns)
     .set({ status: 'running', pauseReason: null, launchedAt: campaign.launchedAt ?? now, updatedAt: now })
     .where(eq(campaigns.id, campaignId))
   const times = slots.map((slot) => slot.at.getTime())
+  const emailInserted = emailContacts.filter((candidate) => insertedContacts.has(candidate.id)).length
   return {
-    queuedEmail: emailContacts.length,
+    busy: false,
+    queuedEmail: emailInserted,
     queuedWhatsapp,
     manualWhatsapp,
-    skipped,
+    skipped: skipped + (emailContacts.length - emailInserted),
     firstAt: times.length ? new Date(Math.min(...times)) : null,
     lastAt: times.length ? new Date(Math.max(...times)) : null,
   }

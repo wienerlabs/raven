@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronRight, Mail, Phone } from 'lucide-react'
-import { bulkUpdate, type ActionResult } from '@/app/actions/contacts'
+import { bulkUpdate, suppressDomains, type ActionResult } from '@/app/actions/contacts'
 import { MotionButton } from '@/components/ui/MotionButton'
 import { ReviewBadge, StageBadge } from '@/components/ui/Badges'
 import type { ReviewStatus, Stage } from '@/lib/db/schema'
@@ -30,7 +30,7 @@ export interface ContactRow {
   lastActivityAt: string | null
 }
 
-type BulkAction = Parameters<typeof bulkUpdate>[1]
+type BulkAction = Parameters<typeof bulkUpdate>[1] | 'blockDomain'
 
 const actions: Array<{ key: BulkAction; label: string; primary?: boolean }> = [
   { key: 'approve', label: 'Onayla', primary: true },
@@ -39,6 +39,7 @@ const actions: Array<{ key: BulkAction; label: string; primary?: boolean }> = [
   { key: 'exclude', label: 'Hariç tut' },
   { key: 'customer', label: 'Mevcut müşteri' },
   { key: 'prospect', label: 'Aday' },
+  { key: 'blockDomain', label: 'Alan adını engelle' },
 ]
 
 export function ContactsTable({ rows }: { rows: ContactRow[] }) {
@@ -59,7 +60,7 @@ export function ContactsTable({ rows }: { rows: ContactRow[] }) {
 
   const run = (action: BulkAction) =>
     startTransition(async () => {
-      const outcome = await bulkUpdate(selectedIds, action)
+      const outcome = action === 'blockDomain' ? await suppressDomains(selectedIds) : await bulkUpdate(selectedIds, action)
       setResult(outcome)
       setSelected(new Set())
       router.refresh()

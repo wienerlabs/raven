@@ -23,6 +23,7 @@ export async function launch(): Promise<ActionResult> {
   const campaign = await ensureCampaign(db)
   const summary = await launchCampaign(db, campaign.id)
   refresh()
+  if (summary.busy) return { ok: false, message: 'Kampanya şu anda başka bir oturumda sıraya alınıyor. Birkaç saniye sonra sayfayı yenileyin.' }
   if (summary.queuedEmail + summary.queuedWhatsapp + summary.manualWhatsapp === 0) {
     return { ok: false, message: 'Sıraya alınacak onaylı ve henüz iletişime geçilmemiş kişi yok.' }
   }

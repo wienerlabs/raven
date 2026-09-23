@@ -99,7 +99,7 @@ export function sessionSecret(env: NodeJS.ProcessEnv = process.env): string {
 
 export function adminPassword(env: NodeJS.ProcessEnv = process.env): string {
   const password = env.RAVEN_ADMIN_PASSWORD ?? ''
-  if (password.length >= 10) return password
+  if (password.length >= 12) return password
   if (env.NODE_ENV !== 'production') return password || 'raven-local'
-  throw new Error('RAVEN_ADMIN_PASSWORD must be at least 10 characters')
+  throw new Error('RAVEN_ADMIN_PASSWORD must be at least 12 characters')
 }

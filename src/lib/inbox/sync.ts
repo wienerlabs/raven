@@ -5,6 +5,7 @@ import type { SenderConfig } from '@/lib/env'
 import { findContactByAddress, recordEvent, recordResponse, suppress } from '@/lib/campaign/state'
 import { getSettings, getState, setState } from '@/lib/settings'
 import { notifyTeam } from '@/lib/notify'
+import { withLease } from '@/lib/campaign/lease'
 import { classifyInbound, classifyReplyIntent, extractFailedRecipients, extractMessageIds, stripQuoted, wantsUnsubscribe, type InboundMail } from './classify'
 
 export interface InboxSyncResult {
@@ -85,6 +86,12 @@ export async function handleInbound(db: Database, mail: InboundMail, at = new Da
 export async function syncSenderInbox(db: Database, sender: SenderConfig, options: { now?: Date; lookbackDays?: number; maxMessages?: number } = {}): Promise<InboxSyncResult> {
   const result: InboxSyncResult = { sender: sender.id, scanned: 0, replies: 0, autoReplies: 0, bounces: 0, unsubscribes: 0, error: null }
   if (!sender.imap) return { ...result, error: 'IMAP is not configured for this sender' }
+  const outcome = await withLease(db, `inbox:${sender.id}`, 5 * 60 * 1000, () => runInboxSync(db, sender, options, result))
+  return outcome.acquired ? outcome.value : { ...result, error: 'Bu gelen kutusu şu anda başka bir işlem tarafından taranıyor' }
+}
+
+async function runInboxSync(db: Database, sender: SenderConfig, options: { now?: Date; lookbackDays?: number; maxMessages?: number }, result: InboxSyncResult): Promise<InboxSyncResult> {
+  if (!sender.imap) return result
   const now = options.now ?? new Date()
   const { ImapFlow } = await import('imapflow')
   const { simpleParser } = await import('mailparser')
@@ -111,8 +118,11 @@ export async function syncSenderInbox(db: Database, sender: SenderConfig, option
       let lastUid = state && state.uidValidity === uidValidity ? state.lastUid : 0
       for (const uid of batch) {
         const fetched = await client.fetchOne(String(uid), { uid: true, source: { maxLength: 400_000 } }, { uid: true })
-        lastUid = Math.max(lastUid, uid)
-        if (!fetched || !fetched.source) continue
+        if (!fetched || !fetched.source) {
+          lastUid = Math.max(lastUid, uid)
+          await setState<CursorState>(db, key, { uidValidity, lastUid })
+          continue
+        }
         result.scanned += 1
         const parsed = await simpleParser(fetched.source)
         const references = Array.isArray(parsed.references) ? parsed.references : parsed.references ? [parsed.references] : []
@@ -135,6 +145,8 @@ export async function syncSenderInbox(db: Database, sender: SenderConfig, option
         if (outcome === 'auto_reply') result.autoReplies += 1
         if (outcome === 'bounce') result.bounces += 1
         if (outcome === 'unsubscribe') result.unsubscribes += 1
+        lastUid = Math.max(lastUid, uid)
+        await setState<CursorState>(db, key, { uidValidity, lastUid })
       }
       await setState<CursorState>(db, key, { uidValidity, lastUid })
     } finally {

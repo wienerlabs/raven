@@ -16,6 +16,7 @@ export interface OutgoingEmail {
 export interface SendResult {
   providerId: string | null
   permanentFailure: boolean
+  retryable: boolean
   error: string | null
 }
 
@@ -45,9 +46,23 @@ async function smtpTransporter(sender: SenderConfig): Promise<Transporter> {
   return transporter
 }
 
-function isPermanentSmtp(error: unknown): boolean {
-  const code = (error as { responseCode?: number }).responseCode
-  return typeof code === 'number' && code >= 500 && code < 600 && code !== 552 && code !== 554
+interface SmtpFailure {
+  code?: string
+  command?: string
+  responseCode?: number
+}
+
+const preDataCommands = /^(CONN|EHLO|HELO|LHLO|STARTTLS|AUTH|MAIL FROM|RCPT TO)/i
+const connectionCodes = new Set(['ECONNECTION', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EDNS', 'EAUTH', 'ETLS'])
+
+export function classifySmtpFailure(error: unknown): { permanentFailure: boolean; retryable: boolean } {
+  const failure = (error ?? {}) as SmtpFailure
+  const response = typeof failure.responseCode === 'number' ? failure.responseCode : null
+  if (response !== null && response >= 500 && response !== 552 && response !== 554) return { permanentFailure: true, retryable: false }
+  const beforeData = typeof failure.command === 'string' && preDataCommands.test(failure.command)
+  if (response !== null && response >= 400 && response < 500) return { permanentFailure: false, retryable: beforeData }
+  if (failure.code && connectionCodes.has(failure.code) && (beforeData || !failure.command)) return { permanentFailure: false, retryable: true }
+  return { permanentFailure: false, retryable: beforeData }
 }
 
 export const smtpTransport: EmailTransport = {
@@ -68,9 +83,10 @@ export const smtpTransport: EmailTransport = {
         references: email.references,
       })
       const rejected = (info.rejected ?? []).length > 0
-      return { providerId: info.messageId ?? email.messageId, permanentFailure: rejected, error: rejected ? `rejected: ${String(info.rejected)}` : null }
+      return { providerId: info.messageId ?? email.messageId, permanentFailure: rejected, retryable: false, error: rejected ? `rejected: ${String(info.rejected)}` : null }
     } catch (error) {
-      return { providerId: null, permanentFailure: isPermanentSmtp(error), error: error instanceof Error ? error.message : String(error) }
+      const outcome = classifySmtpFailure(error)
+      return { providerId: null, ...outcome, error: error instanceof Error ? error.message : String(error) }
     }
   },
 }
@@ -79,7 +95,7 @@ export const resendTransport: EmailTransport = {
   kind: 'resend',
   async send(email, sender) {
     const key = process.env.RESEND_API_KEY
-    if (!key) return { providerId: null, permanentFailure: false, error: 'RESEND_API_KEY is missing' }
+    if (!key) return { providerId: null, permanentFailure: false, retryable: false, error: 'RESEND_API_KEY is missing' }
     const headers: Record<string, string> = { ...email.headers }
     if (email.inReplyTo) headers['In-Reply-To'] = email.inReplyTo
     if (email.references?.length) headers.References = email.references.join(' ')
@@ -99,11 +115,11 @@ export const resendTransport: EmailTransport = {
         signal: AbortSignal.timeout(20_000),
       })
       const payload = (await response.json().catch(() => ({}))) as { id?: string; message?: string }
-      if (response.ok && payload.id) return { providerId: payload.id, permanentFailure: false, error: null }
+      if (response.ok && payload.id) return { providerId: payload.id, permanentFailure: false, retryable: false, error: null }
       const permanent = response.status >= 400 && response.status < 500 && response.status !== 429
-      return { providerId: null, permanentFailure: permanent, error: `resend ${response.status}: ${payload.message ?? 'unknown error'}` }
+      return { providerId: null, permanentFailure: permanent, retryable: !permanent, error: `resend ${response.status}: ${payload.message ?? 'unknown error'}` }
     } catch (error) {
-      return { providerId: null, permanentFailure: false, error: error instanceof Error ? error.message : String(error) }
+      return { providerId: null, permanentFailure: false, retryable: true, error: error instanceof Error ? error.message : String(error) }
     }
   },
 }
@@ -112,7 +128,7 @@ export const consoleTransport: EmailTransport = {
   kind: 'console',
   async send(email) {
     console.info(`[raven:console] to=${email.to} subject="${email.subject}" id=${email.messageId}`)
-    return { providerId: `console:${email.messageId}`, permanentFailure: false, error: null }
+    return { providerId: `console:${email.messageId}`, permanentFailure: false, retryable: false, error: null }
   },
 }
 
