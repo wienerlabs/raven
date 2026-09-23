@@ -4,6 +4,7 @@ import type { Database } from '@/lib/db'
 import { campaigns, contacts, messages, responses, suppressions } from '@/lib/db/schema'
 import { importContacts, rowsFromMatrix } from '@/lib/contacts/import'
 import { savePitch } from '@/lib/pitch/store'
+import { importPitchMap } from '@/lib/pitch/import'
 import { ensureCampaign, launchCampaign, queueTestEmail, updateCampaignConfig } from '@/lib/campaign/launch'
 import { dispatchDue } from '@/lib/campaign/dispatch'
 import { recordResponse, suppress } from '@/lib/campaign/state'
@@ -170,5 +171,27 @@ describe('campaign lifecycle', () => {
     expect(sent[0].subject.startsWith('Test: ')).toBe(true)
     const contact = (await db.select().from(contacts))[0]
     expect(contact.stage).toBe('new')
+  })
+
+  it('applies hold and check decisions carried in the pitch file', async () => {
+    const matrix = [['First Name', 'Last Name', 'Title', 'Company', 'Email'], ['Mert', 'Test', 'CTO', 'Firma0', 'kisi0@firma0.com.tr'], ['Ayşe', 'Test', 'CTO', 'Firma1', 'kisi1@firma1.com.tr'], ['Can', 'Test', 'CTO', 'Firma2', 'kisi2@firma2.com.tr']]
+    await importContacts(db, rowsFromMatrix(matrix).rows, 'test.xlsx')
+    const summary = await importPitchMap(
+      db,
+      {
+        'kisi0@firma0.com.tr': { pitch: pitchFor('Mert', 'Firma0'), hold: 'Lisansı iptal edildi' },
+        'kisi1@firma1.com.tr': { pitch: pitchFor('Ayşe', 'Firma1'), check: 'Şirketten ayrılmış olabilir' },
+        'kisi2@firma2.com.tr': pitchFor('Can', 'Firma2'),
+      },
+      { approveClean: true },
+    )
+    expect(summary).toMatchObject({ saved: 3, approved: 1, held: 1, flaggedForCheck: 1 })
+    const rows = await db.select().from(contacts)
+    const byEmail = new Map(rows.map((row) => [row.email, row]))
+    expect(byEmail.get('kisi0@firma0.com.tr')?.reviewStatus).toBe('hold')
+    expect(byEmail.get('kisi0@firma0.com.tr')?.holdReason).toBe('Lisansı iptal edildi')
+    expect(byEmail.get('kisi1@firma1.com.tr')?.reviewStatus).toBe('pending')
+    expect(byEmail.get('kisi1@firma1.com.tr')?.notes).toContain('Şirketten ayrılmış olabilir')
+    expect(byEmail.get('kisi2@firma2.com.tr')?.reviewStatus).toBe('approved')
   })
 })

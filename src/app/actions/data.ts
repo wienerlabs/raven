@@ -51,7 +51,8 @@ export async function importPitchesAction(_: ActionResult | null, formData: Form
   revalidatePath('/kisiler')
   revalidatePath('/')
   const errors = [...summary.invalid.map((item) => `${item.email}: ${item.errors.slice(0, 2).join('; ')}`), ...summary.missingContact.slice(0, 20).map((email) => `${email}: kişi bulunamadı`)]
-  return { ok: summary.invalid.length === 0, message: `${summary.saved} içerik kaydedildi, ${summary.approved} tanesi onaylandı.`, errors }
+  const extras = [summary.held ? `${summary.held} kişi gerekçesiyle beklemede` : '', summary.flaggedForCheck ? `${summary.flaggedForCheck} kişi kontrol notuyla incelemede` : ''].filter(Boolean).join(', ')
+  return { ok: summary.invalid.length === 0, message: `${summary.saved} içerik kaydedildi, ${summary.approved} tanesi onaylandı${extras ? `; ${extras}` : ''}.`, errors }
 }
 
 export async function researchMissing(limit = 6): Promise<ActionResult & { remaining: number }> {

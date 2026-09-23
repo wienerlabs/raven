@@ -14,7 +14,7 @@ async function main() {
   for (const file of files) Object.assign(map, JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>)
   const db = await getDb()
   const summary = await importPitchMap(db, map, { approveClean })
-  console.log(`saved ${summary.saved}, approved ${summary.approved}, invalid ${summary.invalid.length}, missing contact ${summary.missingContact.length}`)
+  console.log(`saved ${summary.saved}, approved ${summary.approved}, held ${summary.held}, to check ${summary.flaggedForCheck}, invalid ${summary.invalid.length}, missing contact ${summary.missingContact.length}`)
   for (const item of summary.invalid) console.log(`invalid ${item.email}: ${item.errors.join('; ')}`)
   for (const email of summary.missingContact) console.log(`missing ${email}`)
   process.exit(summary.invalid.length ? 1 : 0)
