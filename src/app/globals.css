@@ -139,7 +139,7 @@ p {
     @apply w-full appearance-none rounded-2xl border border-line bg-surface px-4 py-2.5 text-sm text-ink outline-none transition focus:border-accent-strong focus:ring-2 focus:ring-accent-soft;
   }
   .pill {
-    @apply inline-flex items-center rounded-full border border-line bg-soft px-3 py-1 text-xs text-mute;
+    @apply inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-line bg-soft px-3 py-1 text-xs text-mute;
   }
   .label {
     @apply mb-1.5 block text-xs text-mute;

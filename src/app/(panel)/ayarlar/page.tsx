@@ -4,8 +4,12 @@ import { getSettings } from '@/lib/settings'
 import { environmentSummary } from '@/lib/readiness'
 import { emailProviderLabel } from '@/lib/channels/email'
 import { saveSettingsAction } from '@/app/actions/settings'
+import { accessOverview } from '@/lib/auth/passkeys'
+import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { isMemberSession, requireAdmin } from '@/lib/security/session'
 import { SettingsForm } from './SettingsForm'
 import { SenderChecks } from './SenderChecks'
+import { AccessPanel } from './AccessPanel'
 
 export const metadata: Metadata = { title: 'Ayarlar' }
 
@@ -19,15 +23,28 @@ function Line({ label, value, ok }: { label: string; value: string; ok?: boolean
 }
 
 export default async function SettingsPage() {
+  const session = await requireAdmin()
   const db = await getDb()
-  const settings = await getSettings(db)
+  const [settings, access, whatsapp] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db)])
   const env = environmentSummary()
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl tracking-tight text-ink">Ayarlar</h1>
-        <p className="mt-1 max-w-2xl text-sm text-mute">Gönderen kimliği, teklif metni ve hukuki bilgiler e-postalara, taslak sayfalarına ve AI üretimine yansır. Şifreler ve API anahtarları yalnızca ortam değişkenlerinde tutulur.</p>
+        <p className="mt-1 max-w-2xl text-sm text-mute">Gönderen kimliği, teklif metni ve hukuki bilgiler e-postalara, taslak sayfalarına ve AI üretimine yansır. E-posta şifreleri ortam değişkenlerinde, WhatsApp anahtarları şifrelenmiş olarak veritabanında tutulur.</p>
       </div>
+
+      <AccessPanel
+        members={access.members.map((member) => ({
+          id: member.id,
+          name: member.name,
+          lastLoginAt: member.lastLoginAt?.toISOString() ?? null,
+          passkeys: member.passkeys.map((key) => ({ id: key.id, label: key.label, createdAt: key.createdAt.toISOString(), lastUsedAt: key.lastUsedAt?.toISOString() ?? null, backedUp: key.backedUp })),
+        }))}
+        invites={access.invites.map((invite) => ({ id: invite.id, name: invite.name, expiresAt: invite.expiresAt.toISOString() }))}
+        viewerMemberId={isMemberSession(session) ? session.sub : null}
+        viewerName={session.name}
+      />
 
       <SettingsForm action={saveSettingsAction} settings={settings} />
 
@@ -39,7 +56,7 @@ export default async function SettingsPage() {
             <Line label="Genel adres" value={env.baseUrl} ok={env.baseUrl.startsWith('https://')} />
             <Line label="Zamanlayıcı (CRON_SECRET)" value={env.cronSecret ? 'Tanımlı' : 'Tanımlı değil'} ok={env.cronSecret} />
             <Line label="AI üretimi" value={env.ai ? `Açık (${env.aiModel})` : 'ANTHROPIC_API_KEY yok'} ok={env.ai} />
-            <Line label="WhatsApp" value={env.whatsapp === 'cloud' ? (env.whatsappConfigured ? 'Cloud API bağlı' : 'Cloud API seçili ama anahtar yok') : 'Elle gönderim'} ok={env.whatsapp === 'manual' || env.whatsappConfigured} />
+            <Line label="WhatsApp" value={whatsapp.mode === 'cloud' ? 'Otomatik gönderim (Cloud API)' : whatsapp.businessNumber ? 'Tıkla-yaz açık, gönderim elle' : 'Elle gönderim'} ok={whatsapp.mode === 'cloud' || Boolean(whatsapp.businessNumber)} />
             <Line label="Slack bildirimi" value={env.slack ? 'Açık' : 'Kapalı'} ok={env.slack} />
           </div>
           {env.sendersError ? <p className="mt-3 text-xs text-ink">RAVEN_SENDERS okunamadı: {env.sendersError}</p> : null}

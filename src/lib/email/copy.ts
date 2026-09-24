@@ -15,6 +15,8 @@ export interface EmailCopy {
   privacy: string
   unsubscribe: string
   whatsappOptOut: string
+  whatsappChat: string
+  whatsappChatHint: string
 }
 
 export const emailCopy: Record<Language, EmailCopy> = {
@@ -34,6 +36,8 @@ export const emailCopy: Record<Language, EmailCopy> = {
     privacy: 'Aydınlatma metni',
     unsubscribe: 'Bir daha yazmayalım',
     whatsappOptOut: 'Bu konuda tekrar yazmamı istemezseniz belirtmeniz yeterli.',
+    whatsappChat: "WhatsApp'tan yazın",
+    whatsappChatHint: 'Yazışmayı tercih ederseniz:',
   },
   en: {
     badge: 'Prepared for you',
@@ -50,5 +54,7 @@ export const emailCopy: Record<Language, EmailCopy> = {
     privacy: 'Privacy notice',
     unsubscribe: 'Do not email me again',
     whatsappOptOut: 'If you would rather not hear from me about this, just let me know.',
+    whatsappChat: 'Message us on WhatsApp',
+    whatsappChatHint: 'Prefer chatting?',
   },
 }

@@ -7,6 +7,9 @@ import { waMeLink } from '@/lib/channels/whatsapp'
 import { formatPhone } from '@/lib/contacts/phone'
 import { IntentBadge, StageBadge } from '@/components/ui/Badges'
 import { EmptyState } from '@/components/ui/Metric'
+import { WhatsappReply } from '@/components/whatsapp/WhatsappReply'
+import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { REPLY_WINDOW_MS, replyWindowOpen } from '@/lib/whatsapp/inbound'
 import { HandledButton } from './HandledButton'
 
 export const metadata: Metadata = { title: 'Yanıtlar' }
@@ -19,7 +22,14 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
   const show = typeof params.show === 'string' ? params.show : 'open'
   const intent = typeof params.intent === 'string' ? params.intent : undefined
   const db = await getDb()
-  const rows = await listResponses(db, { show, intent })
+  const [rows, whatsappConfig] = await Promise.all([listResponses(db, { show, intent }), resolveWhatsapp(db)])
+  const latestWhatsapp = new Map<string, Date>()
+  for (const { response, contact } of rows) {
+    if (response.channel !== 'whatsapp' || response.kind !== 'reply') continue
+    const current = latestWhatsapp.get(contact.id)
+    if (!current || response.createdAt > current) latestWhatsapp.set(contact.id, response.createdAt)
+  }
+  const now = new Date()
   const tabs = [
     { key: 'open', label: 'Bekleyenler' },
     { key: 'all', label: 'Tümü' },
@@ -52,7 +62,9 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
           {rows.map(({ response, contact, solution, greeting }) => {
             const replySubject = encodeURIComponent(`${solution ?? 'Wiener Labs'} hakkında`)
             const mailto = contact.email ? `mailto:${contact.email}?subject=${replySubject}` : null
-            const whatsapp = contact.phone ? waMeLink(contact.phone, `Merhaba ${greeting ?? contact.firstName}, `) : null
+            const replyNumber = response.channel === 'whatsapp' && response.fromAddress ? response.fromAddress : contact.phone
+            const unverified = response.channel === 'whatsapp' && Boolean(response.fromAddress) && response.fromAddress !== contact.phone
+            const whatsapp = replyNumber ? waMeLink(replyNumber, `Merhaba ${greeting ?? contact.firstName}, `) : null
             return (
               <li key={response.id} className={`card ${response.handled ? 'opacity-70' : ''}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -61,6 +73,7 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
                       <IntentBadge intent={response.intent} />
                       <span className="pill">{kindLabels[response.kind]}</span>
                       <span className="text-xs text-mute">{channelLabels[response.channel]}</span>
+                      {unverified ? <span className="pill">Doğrulanmamış numara</span> : null}
                     </div>
                     <Link href={`/kisiler/${contact.id}`} className="mt-2 block text-lg tracking-tight text-ink">
                       {contact.firstName} {contact.lastName}
@@ -84,11 +97,21 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
                   ) : null}
                   {whatsapp ? (
                     <a href={whatsapp} target="_blank" rel="noreferrer" className="btn-ghost btn-sm">
-                      WhatsApp ({formatPhone(contact.phone)})
+                      WhatsApp ({formatPhone(replyNumber)})
                     </a>
                   ) : null}
                   <HandledButton id={response.id} handled={response.handled} />
                 </div>
+                {whatsappConfig.cloud && response.channel === 'whatsapp' && response.kind === 'reply' && response.fromAddress ? (
+                  <div className="mt-4 border-t border-line pt-4">
+                    <WhatsappReply
+                      contactId={contact.id}
+                      windowOpen={replyWindowOpen(latestWhatsapp.get(contact.id) ?? response.createdAt, now)}
+                      closesAt={new Date((latestWhatsapp.get(contact.id) ?? response.createdAt).getTime() + REPLY_WINDOW_MS).toISOString()}
+                      placeholder={`${greeting ?? contact.firstName} için WhatsApp yanıtı`}
+                    />
+                  </div>
+                ) : null}
               </li>
             )
           })}

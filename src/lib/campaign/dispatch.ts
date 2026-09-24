@@ -3,6 +3,7 @@ import type { Database } from '@/lib/db'
 import { campaigns, contacts, events, messages, pitches, type CampaignConfig } from '@/lib/db/schema'
 import { activeSenders, getTransport, senderDomain, type EmailTransport } from '@/lib/channels/email'
 import { sendWhatsappTemplate, type TemplateSend, type WhatsappSendResult } from '@/lib/channels/whatsapp'
+import { resolveWhatsapp } from '@/lib/whatsapp/config'
 import { renderEmail } from '@/lib/email/render'
 import { baseUrl as resolveBaseUrl, type SenderConfig } from '@/lib/env'
 import { getSettings, type AppSettings } from '@/lib/settings'
@@ -153,12 +154,11 @@ export async function dispatchDue(db: Database, options: DispatchOptions = {}): 
   const transport = options.transport ?? getTransport()
   const senders = options.senders ?? activeSenders()
   const base = options.baseUrl ?? resolveBaseUrl()
-  const whatsappSend = options.whatsappSend ?? sendWhatsappTemplate
   const report: DispatchReport = { busy: false, claimed: 0, sent: 0, failed: 0, rescheduled: 0, cancelled: 0, paused: [], errors: [] }
   const lease = await acquireLease(db, 'dispatch', LEASE_MS, now)
   if (!lease) return { ...report, busy: true }
   try {
-    await runDispatch(db, options, report, { now, random, transport, senders, base, whatsappSend })
+    await runDispatch(db, options, report, { now, random, transport, senders, base })
   } finally {
     await releaseLease(db, 'dispatch', lease)
   }
@@ -169,14 +169,16 @@ async function runDispatch(
   db: Database,
   options: DispatchOptions,
   report: DispatchReport,
-  shared: { now: Date; random: () => number; transport: EmailTransport; senders: SenderConfig[]; base: string; whatsappSend: (input: TemplateSend) => Promise<WhatsappSendResult> },
+  shared: { now: Date; random: () => number; transport: EmailTransport; senders: SenderConfig[]; base: string },
 ): Promise<void> {
-  const { now, random, transport, senders, base, whatsappSend } = shared
+  const { now, random, transport, senders, base } = shared
   await recoverStuck(db, now)
   const claimed = await claimDue(db, now, options.limit ?? 10, options.messageIds)
   report.claimed = claimed.length
   if (claimed.length === 0) return
   const settings = await getSettings(db)
+  const whatsapp = await resolveWhatsapp(db)
+  const whatsappSend = options.whatsappSend ?? ((input: TemplateSend) => sendWhatsappTemplate(whatsapp.cloud, input))
   const campaignIds = [...new Set(claimed.map((message) => message.campaignId).filter((id): id is string => Boolean(id)))]
   const campaignRows = campaignIds.length ? await db.select().from(campaigns).where(inArray(campaigns.id, campaignIds)) : []
   const configs = new Map(campaignRows.map((row) => [row.id, row.config]))
@@ -190,6 +192,7 @@ async function runDispatch(
         base,
         settings,
         whatsappSend,
+        whatsappNumber: whatsapp.businessNumber,
         config: (message.campaignId && configs.get(message.campaignId)) || defaultCampaignConfig,
       })
       report[outcome.kind] += 1
@@ -212,6 +215,7 @@ interface ProcessContext {
   base: string
   settings: AppSettings
   whatsappSend: (input: TemplateSend) => Promise<WhatsappSendResult>
+  whatsappNumber: string | null
   config: CampaignConfig
 }
 
@@ -277,6 +281,7 @@ async function processMessage(db: Database, message: MessageRow, context: Proces
     baseUrl: context.base,
     replyTo,
     firstSubject: thread.firstSubject,
+    whatsappNumber: context.whatsappNumber,
   })
   const rfcMessageId = `<${message.token}@${senderDomain(sender)}>`
   const subject = message.isTest ? `Test: ${rendered.subject}` : rendered.subject

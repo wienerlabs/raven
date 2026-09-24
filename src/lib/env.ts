@@ -20,7 +20,6 @@ const senderSchema = z.object({
 
 export type SenderConfig = z.infer<typeof senderSchema>
 export type EmailProvider = 'smtp' | 'resend' | 'console'
-export type WhatsappMode = 'manual' | 'cloud'
 
 function flag(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined || value === '') return fallback
@@ -59,10 +58,6 @@ export function emailProvider(env: NodeJS.ProcessEnv = process.env): EmailProvid
   return 'console'
 }
 
-export function whatsappMode(env: NodeJS.ProcessEnv = process.env): WhatsappMode {
-  return env.WHATSAPP_MODE?.toLowerCase() === 'cloud' ? 'cloud' : 'manual'
-}
-
 export function baseUrl(env: NodeJS.ProcessEnv = process.env): string {
   const explicit = env.RAVEN_BASE_URL?.trim()
   if (explicit) return explicit.replace(/\/+$/, '')
@@ -76,18 +71,6 @@ export function aiModel(env: NodeJS.ProcessEnv = process.env): string {
 
 export function hasAi(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(env.ANTHROPIC_API_KEY?.trim())
-}
-
-export function whatsappCloud(env: NodeJS.ProcessEnv = process.env) {
-  return {
-    token: env.WHATSAPP_TOKEN ?? '',
-    phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID ?? '',
-    templateName: env.WHATSAPP_TEMPLATE_NAME ?? 'raven_intro',
-    templateLanguage: env.WHATSAPP_TEMPLATE_LANG ?? 'tr',
-    verifyToken: env.WHATSAPP_VERIFY_TOKEN ?? '',
-    appSecret: env.WHATSAPP_APP_SECRET ?? '',
-    apiVersion: env.WHATSAPP_API_VERSION ?? 'v23.0',
-  }
 }
 
 export function sessionSecret(env: NodeJS.ProcessEnv = process.env): string {

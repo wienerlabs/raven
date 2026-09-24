@@ -1,7 +1,7 @@
 import { and, count, eq, gte } from 'drizzle-orm'
 import type { Database } from '@/lib/db'
 import { events } from '@/lib/db/schema'
-import { baseUrl, emailProvider, hasAi, readSenders, whatsappMode, type SenderConfig } from '@/lib/env'
+import { baseUrl, emailProvider, hasAi, readSenders, type SenderConfig } from '@/lib/env'
 import type { AppSettings } from '@/lib/settings'
 
 export interface ReadinessItem {
@@ -87,8 +87,6 @@ export function environmentSummary() {
     baseUrl: baseUrl(),
     ai: hasAi(),
     aiModel: process.env.RAVEN_AI_MODEL?.trim() || 'claude-opus-5-5',
-    whatsapp: whatsappMode(),
-    whatsappConfigured: Boolean(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_NUMBER_ID),
     cronSecret: Boolean(process.env.CRON_SECRET),
     slack: Boolean(process.env.SLACK_WEBHOOK_URL),
   }

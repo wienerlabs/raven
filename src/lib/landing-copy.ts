@@ -22,6 +22,7 @@ export interface LandingCopy {
   closingTitle: string
   closingBody: (sender: string) => string
   calendarCta: string
+  whatsappCta: string
   noteTitle: string
   notePlaceholder: string
   contactPlaceholder: string
@@ -61,6 +62,7 @@ export const landingCopy: Record<Language, LandingCopy> = {
     closingTitle: '20 dakikada pilotu birlikte netleştirelim.',
     closingBody: (sender) => `Kapsamı, verileri ve başarı ölçütünü birlikte belirleyelim. ${sender} size bir iş günü içinde dönüş yapar.`,
     calendarCta: 'Takvimden saat seçin',
+    whatsappCta: "WhatsApp'tan yazın",
     noteTitle: 'Bir not bırakın',
     notePlaceholder: 'Sorunuz, uygun olduğunuz saatler veya pilotta görmek istediğiniz şey',
     contactPlaceholder: 'Size nasıl ulaşalım? (telefon, e-posta veya asistan)',
@@ -102,6 +104,7 @@ export const landingCopy: Record<Language, LandingCopy> = {
     closingTitle: 'Shape the pilot together in 20 minutes.',
     closingBody: (sender) => `We will agree on scope, data and the success metric together. ${sender} will get back to you within one business day.`,
     calendarCta: 'Pick a time',
+    whatsappCta: 'Message on WhatsApp',
     noteTitle: 'Leave a note',
     notePlaceholder: 'Your question, times that work, or what you want to see in the pilot',
     contactPlaceholder: 'How should we reach you? (phone, email or assistant)',

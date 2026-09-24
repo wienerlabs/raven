@@ -90,6 +90,15 @@ describe('database backed safeguards', () => {
     expect(await loginBlocked(db, '203.0.113.9', now)).toBe(false)
   })
 
+  it('keeps passkey attempts out of the shared lockout', async () => {
+    const now = new Date('2026-09-23T10:00:00Z')
+    for (let index = 0; index < LOGIN_LIMITS.global; index++) await registerLoginFailure(db, `198.51.100.${index}`, now)
+    expect(await loginBlocked(db, '192.0.2.1', now)).toBe(true)
+    expect(await loginBlocked(db, '192.0.2.1', now, { global: false })).toBe(false)
+    for (let index = 0; index < LOGIN_LIMITS.ip; index++) await registerLoginFailure(db, '192.0.2.9', now, { global: false })
+    expect(await loginBlocked(db, '192.0.2.9', now, { global: false })).toBe(true)
+  })
+
   it('grants a lease to one holder at a time', async () => {
     const now = new Date('2026-09-23T10:00:00Z')
     const first = await acquireLease(db, 'dispatch', 60_000, now)

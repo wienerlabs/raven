@@ -1,20 +1,15 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getDb } from '@/lib/db'
 import { adminPassword } from '@/lib/env'
+import { clientIp } from '@/lib/security/client-ip'
 import { clearLoginFailures, loginBlocked, registerLoginFailure } from '@/lib/security/login-limit'
 import { endSession, startSession } from '@/lib/security/session'
 import { safeEqual } from '@/lib/security/tokens'
 
 export interface LoginState {
   error: string | null
-}
-
-async function clientIp(): Promise<string> {
-  const list = await headers()
-  return list.get('x-real-ip')?.trim() || list.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local'
 }
 
 export async function login(_: LoginState, formData: FormData): Promise<LoginState> {

@@ -3,7 +3,7 @@ import { SESSION_COOKIE } from '@/lib/security/cookie-name'
 import { verifySessionValue } from '@/lib/security/tokens'
 import { sessionSecret } from '@/lib/env'
 
-const publicPrefixes = ['/giris', '/r/', '/u/', '/gizlilik', '/api/track', '/api/unsubscribe', '/api/webhooks', '/api/cron', '/api/health', '/brand/', '/fonts/', '/bg/']
+const publicPrefixes = ['/giris', '/davet/', '/r/', '/u/', '/gizlilik', '/api/track', '/api/unsubscribe', '/api/webhooks', '/api/cron', '/api/health', '/brand/', '/fonts/', '/bg/']
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

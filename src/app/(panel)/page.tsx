@@ -3,12 +3,15 @@ import Link from 'next/link'
 import { ArrowRight, Check } from 'lucide-react'
 import { getDb } from '@/lib/db'
 import { ensureCampaign, nextScheduled } from '@/lib/campaign/launch'
-import { latestCampaign, overviewStats, readyToLaunch, recentResponses } from '@/lib/queries'
+import { latestCampaign, overviewStats, readyToLaunch, recentResponses, responseMix, responsePulse, sectorPerformance } from '@/lib/queries'
 import { readiness } from '@/lib/readiness'
 import { getSettings } from '@/lib/settings'
 import { formatDateTime, percent, stageLabels } from '@/lib/labels'
 import { IntentBadge } from '@/components/ui/Badges'
 import { EmptyState, Metric, Row } from '@/components/ui/Metric'
+import { ResponsePulse } from '@/components/charts/ResponsePulse'
+import { ResponseBreakdown } from '@/components/charts/ResponseBreakdown'
+import { LiveRefresh } from '@/components/charts/LiveRefresh'
 import type { Stage } from '@/lib/db/schema'
 
 export const metadata: Metadata = { title: 'Panel' }
@@ -20,13 +23,19 @@ export default async function OverviewPage() {
   const db = await getDb()
   const [stats, settings, responses, ready] = await Promise.all([overviewStats(db), getSettings(db), recentResponses(db), readyToLaunch(db)])
   const campaign = (await latestCampaign(db)) ?? (await ensureCampaign(db))
-  const next = await nextScheduled(db, campaign.id)
+  const [next, pulse, mix, sectors] = await Promise.all([
+    nextScheduled(db, campaign.id),
+    responsePulse(db, { days: 90, timezone: campaign.config.timezone || 'Europe/Istanbul' }),
+    responseMix(db),
+    sectorPerformance(db),
+  ])
   const checklist = await readiness(db, settings, { total: stats.total, withPitch: stats.withPitch, approved: stats.review.approved ?? 0 })
   const contacted = stats.sentInitial
   const maxStage = Math.max(1, ...funnel.map((stage) => stats.stage[stage] ?? 0))
 
   return (
     <div className="space-y-10">
+      <LiveRefresh seconds={60} />
       <section className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
         <div className="flex flex-col justify-center">
           <span className="pill w-fit">Wiener Labs · Raven</span>
@@ -72,6 +81,10 @@ export default async function OverviewPage() {
         <Metric label="Yanıt veren" value={stats.responders} hint={`${percent(stats.responders, contacted)} yanıt`} emphasis={stats.responders > 0} />
         <Metric label="Görüşme isteyen" value={stats.meetings} hint="Takvim veya not ile" emphasis={stats.meetings > 0} />
       </section>
+
+      <ResponsePulse days={pulse} live={campaign.status === 'running'} />
+
+      <ResponseBreakdown intents={mix.intents} medianHours={mix.medianHours} sectors={sectors.rows} anySent={sectors.anySent} />
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <div className="card">

@@ -11,6 +11,7 @@ export interface RenderInput {
   baseUrl: string
   replyTo: string
   firstSubject?: string | null
+  whatsappNumber?: string | null
 }
 
 export interface RenderedEmail {
@@ -126,9 +127,21 @@ ${pixel}
 
 const bodyStyle = `margin:0 0 16px;font-family:${fontStack};font-size:15px;line-height:25px;font-weight:300;color:${palette.body};`
 
+function whatsappLine(input: RenderInput, links: MessageLinks): string {
+  if (!input.whatsappNumber) return ''
+  const copy = emailCopy[input.pitch.language]
+  return `<p style="margin:-14px 0 26px;font-family:${fontStack};font-size:12px;line-height:18px;font-weight:300;color:${palette.mute};">${escapeHtml(copy.whatsappChatHint)} <a href="${escapeHtml(links.whatsappChat)}" style="color:${palette.ink};text-decoration:underline;">${escapeHtml(copy.whatsappChat)}</a></p>`
+}
+
 function quickReplyHtml(input: RenderInput, links: MessageLinks): string {
   const copy = emailCopy[input.pitch.language]
-  return `<p style="margin:0 0 8px;font-family:${fontStack};font-size:12px;line-height:18px;font-weight:300;color:${palette.mute};">${escapeHtml(copy.quickReply)}</p><div style="margin:0 0 26px;">${pill(links.intents.meeting, copy.meeting)}${pill(links.intents.info, copy.info)}${pill(links.intents.later, copy.later)}</div>`
+  return `<p style="margin:0 0 8px;font-family:${fontStack};font-size:12px;line-height:18px;font-weight:300;color:${palette.mute};">${escapeHtml(copy.quickReply)}</p><div style="margin:0 0 26px;">${pill(links.intents.meeting, copy.meeting)}${pill(links.intents.info, copy.info)}${pill(links.intents.later, copy.later)}</div>${whatsappLine(input, links)}`
+}
+
+function whatsappText(input: RenderInput, links: MessageLinks): string[] {
+  if (!input.whatsappNumber) return []
+  const copy = emailCopy[input.pitch.language]
+  return [`${copy.whatsappChat}: ${links.whatsappChat}`]
 }
 
 function solutionBlock(pitch: Pitch): string {
@@ -195,6 +208,7 @@ function renderInitial(input: RenderInput, links: MessageLinks, headers: Record<
     `${copy.meeting}: ${links.intents.meeting}`,
     `${copy.info}: ${links.intents.info}`,
     `${copy.later}: ${links.intents.later}`,
+    ...whatsappText(input, links),
     '',
     signatureText(settings),
     '',
@@ -230,6 +244,7 @@ function renderFollowUp(input: RenderInput, links: MessageLinks, headers: Record
     `${copy.meeting}: ${links.intents.meeting}`,
     `${copy.info}: ${links.intents.info}`,
     `${copy.later}: ${links.intents.later}`,
+    ...whatsappText(input, links),
     '',
     signatureText(settings),
     '',

@@ -2,7 +2,8 @@ import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { Database } from '@/lib/db'
 import { campaigns, contacts, messages, pitches, suppressions, type CampaignConfig } from '@/lib/db/schema'
 import { activeSenders } from '@/lib/channels/email'
-import { whatsappMode, type SenderConfig } from '@/lib/env'
+import type { SenderConfig } from '@/lib/env'
+import { resolveWhatsapp } from '@/lib/whatsapp/config'
 import { randomToken } from '@/lib/security/tokens'
 import { withLease } from './lease'
 import { defaultCampaignConfig, localDayKey, nextWindowStart, planSlots } from './schedule'
@@ -123,7 +124,7 @@ async function queueCampaign(db: Database, campaignId: string, options: LaunchOp
     status: 'scheduled',
     scheduledAt: slots[index]?.at ?? nextWindowStart(now, config),
   }))
-  const cloud = whatsappMode() === 'cloud'
+  const cloud = (await resolveWhatsapp(db)).mode === 'cloud'
   let whatsappCursor = nextWindowStart(now, config)
   let queuedWhatsapp = 0
   let manualWhatsapp = 0

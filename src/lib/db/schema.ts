@@ -166,7 +166,13 @@ export const events = pgTable(
     data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
     createdAt: createdAt(),
   },
-  (table) => [index('events_contact_idx').on(table.contactId, table.createdAt), index('events_type_idx').on(table.type, table.createdAt)],
+  (table) => [
+    index('events_contact_idx').on(table.contactId, table.createdAt),
+    index('events_type_idx').on(table.type, table.createdAt),
+    uniqueIndex('events_wa_inbound_unique')
+      .on(sql`(${table.data}->>'id')`)
+      .where(sql`${table.type} = 'wa_inbound'`),
+  ],
 )
 
 export const responses = pgTable(
@@ -213,4 +219,59 @@ export const locks = pgTable('locks', {
   holder: text('holder').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
 })
+
+export const members = pgTable('members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  createdAt: createdAt(),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+})
+
+export const passkeys = pgTable(
+  'passkeys',
+  {
+    id: text('id').primaryKey(),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    publicKey: text('public_key').notNull(),
+    counter: integer('counter').notNull().default(0),
+    transports: jsonb('transports').$type<string[]>().notNull().default([]),
+    deviceType: text('device_type').notNull(),
+    backedUp: boolean('backed_up').notNull().default(false),
+    label: text('label').notNull(),
+    createdAt: createdAt(),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  },
+  (table) => [index('passkeys_member_idx').on(table.memberId)],
+)
+
+export const invites = pgTable(
+  'invites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tokenHash: text('token_hash').notNull(),
+    name: text('name').notNull(),
+    memberId: uuid('member_id').references(() => members.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [uniqueIndex('invites_token_unique').on(table.tokenHash)],
+)
+
+export const authChallenges = pgTable(
+  'auth_challenges',
+  {
+    id: text('id').primaryKey(),
+    purpose: text('purpose').$type<'register' | 'login'>().notNull(),
+    challenge: text('challenge').notNull(),
+    memberId: uuid('member_id'),
+    inviteId: uuid('invite_id'),
+    name: text('name'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index('auth_challenges_expiry_idx').on(table.expiresAt)],
+)
 

@@ -1,4 +1,5 @@
 import { and, asc, count, countDistinct, desc, eq, ilike, inArray, isNull, ne, or, sql, type SQL } from 'drizzle-orm'
+import type { AnyPgColumn } from 'drizzle-orm/pg-core'
 import type { Database } from '@/lib/db'
 import { campaigns, contacts, domains, events, messages, pitches, responses, type ReviewStatus, type Stage } from '@/lib/db/schema'
 
@@ -216,4 +217,176 @@ export async function phoneContactsWithoutWhatsapp(db: Database) {
     .where(and(sql`${contacts.phone} is not null`, eq(contacts.reviewStatus, 'approved'), sql`not exists (select 1 from ${messages} m where m.contact_id = ${contacts.id} and m.channel = 'whatsapp' and m.status <> 'cancelled')`))
     .orderBy(asc(contacts.createdAt))
     .limit(300)
+}
+
+export interface PulseDay {
+  day: string
+  sent: number
+  reached: number
+  views: number
+  responses: number
+  meetings: number
+}
+
+export function localDay(date: Date, timezone: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+}
+
+function dayOf(column: AnyPgColumn, timezone: string) {
+  return sql<string>`to_char(${column} at time zone ${timezone}, 'YYYY-MM-DD')`
+}
+
+export async function responsePulse(db: Database, options: { days: number; timezone: string; now?: Date }): Promise<PulseDay[]> {
+  const now = options.now ?? new Date()
+  const tz = options.timezone
+  const since = new Date(now.getTime() - options.days * 86_400_000).toISOString()
+  const [sent, reached, views, replies, meetings] = await Promise.all([
+    db
+      .select({ day: dayOf(messages.sentAt, tz), value: sql<number>`count(*)::int` })
+      .from(messages)
+      .where(and(eq(messages.status, 'sent'), eq(messages.isTest, false), sql`${messages.sentAt} >= ${since}::timestamptz`))
+      .groupBy(sql`1`),
+    db
+      .select({ day: dayOf(messages.sentAt, tz), value: sql<number>`count(distinct ${messages.contactId})::int` })
+      .from(messages)
+      .where(and(eq(messages.status, 'sent'), eq(messages.step, 0), eq(messages.isTest, false), sql`${messages.sentAt} >= ${since}::timestamptz`))
+      .groupBy(sql`1`),
+    db
+      .select({ day: dayOf(events.createdAt, tz), value: sql<number>`count(distinct ${events.contactId})::int` })
+      .from(events)
+      .where(and(eq(events.type, 'view'), sql`${events.createdAt} >= ${since}::timestamptz`))
+      .groupBy(sql`1`),
+    db
+      .select({ day: dayOf(responses.createdAt, tz), value: sql<number>`count(distinct ${responses.contactId})::int` })
+      .from(responses)
+      .where(and(ne(responses.kind, 'auto_reply'), sql`${responses.createdAt} >= ${since}::timestamptz`))
+      .groupBy(sql`1`),
+    db
+      .select({ day: dayOf(responses.createdAt, tz), value: sql<number>`count(distinct ${responses.contactId})::int` })
+      .from(responses)
+      .where(and(eq(responses.intent, 'meeting'), sql`${responses.createdAt} >= ${since}::timestamptz`))
+      .groupBy(sql`1`),
+  ])
+  const index = (rows: Array<{ day: string; value: number }>) => new Map(rows.map((row) => [row.day, Number(row.value)]))
+  const maps = { sent: index(sent), reached: index(reached), views: index(views), responses: index(replies), meetings: index(meetings) }
+  const out: PulseDay[] = []
+  const seen = new Set<string>()
+  for (let offset = options.days - 1; offset >= 0; offset--) {
+    const day = localDay(new Date(now.getTime() - offset * 86_400_000), tz)
+    if (seen.has(day)) continue
+    seen.add(day)
+    out.push({ day, sent: maps.sent.get(day) ?? 0, reached: maps.reached.get(day) ?? 0, views: maps.views.get(day) ?? 0, responses: maps.responses.get(day) ?? 0, meetings: maps.meetings.get(day) ?? 0 })
+  }
+  return out
+}
+
+export async function responseMix(db: Database) {
+  const latest = await db
+    .selectDistinctOn([responses.contactId], { contactId: responses.contactId, intent: responses.intent, at: responses.createdAt })
+    .from(responses)
+    .where(ne(responses.kind, 'auto_reply'))
+    .orderBy(responses.contactId, desc(responses.createdAt))
+  const intents = new Map<string, number>()
+  for (const row of latest) intents.set(row.intent, (intents.get(row.intent) ?? 0) + 1)
+  const firstSent = await db
+    .select({ contactId: messages.contactId, at: sql<Date | string>`min(${messages.sentAt})` })
+    .from(messages)
+    .where(and(eq(messages.status, 'sent'), eq(messages.step, 0), eq(messages.isTest, false)))
+    .groupBy(messages.contactId)
+  const firstReply = await db
+    .select({ contactId: responses.contactId, at: sql<Date | string>`min(${responses.createdAt})` })
+    .from(responses)
+    .where(ne(responses.kind, 'auto_reply'))
+    .groupBy(responses.contactId)
+  const sentAt = new Map(firstSent.map((row) => [row.contactId, new Date(row.at).getTime()]))
+  const hours = firstReply
+    .map((row) => {
+      const start = sentAt.get(row.contactId)
+      const end = new Date(row.at).getTime()
+      return start && end > start ? (end - start) / 3_600_000 : null
+    })
+    .filter((value): value is number => value !== null)
+    .sort((left, right) => left - right)
+  const medianHours = hours.length ? (hours.length % 2 ? hours[(hours.length - 1) / 2] : (hours[hours.length / 2 - 1] + hours[hours.length / 2]) / 2) : null
+  return { intents: Object.fromEntries(intents) as Partial<Record<'meeting' | 'info' | 'later' | 'not_interested' | 'other', number>>, responders: latest.length, medianHours }
+}
+
+export async function sectorPerformance(db: Database, limit = 6) {
+  const sector = sql<string | null>`nullif(trim(${pitches.content}->'company'->>'sector'), '')`
+  const rows = await db
+    .select({
+      sector,
+      people: sql<number>`count(*)::int`,
+      contacted: sql<number>`count(*) filter (where exists (select 1 from ${messages} m where m.contact_id = ${contacts.id} and m.status = 'sent' and m.is_test = false))::int`,
+      responded: sql<number>`count(*) filter (where exists (select 1 from ${responses} r where r.contact_id = ${contacts.id} and r.kind <> 'auto_reply'))::int`,
+    })
+    .from(contacts)
+    .innerJoin(pitches, eq(pitches.contactId, contacts.id))
+    .groupBy(sql`1`)
+  const merged = new Map<string, { sector: string; people: number; contacted: number; responded: number }>()
+  for (const row of rows) {
+    const name = (row.sector ?? 'Diğer').replace(/\s+/g, ' ')
+    const key = name.toLocaleLowerCase('tr')
+    const current = merged.get(key) ?? { sector: name, people: 0, contacted: 0, responded: 0 }
+    current.people += Number(row.people)
+    current.contacted += Number(row.contacted)
+    current.responded += Number(row.responded)
+    merged.set(key, current)
+  }
+  const list = [...merged.values()]
+  const anySent = list.some((row) => row.contacted > 0)
+  return {
+    anySent,
+    rows: list
+      .filter((row) => !anySent || row.contacted > 0)
+      .sort((left, right) => (anySent ? right.contacted - left.contacted || right.responded - left.responded : right.people - left.people))
+      .slice(0, limit),
+  }
+}
+
+export interface ConversationMessage {
+  direction: 'in' | 'out'
+  text: string
+  at: Date
+}
+
+export async function whatsappConversations(db: Database, limit = 12) {
+  const inbound = await db
+    .select({ id: responses.id, body: responses.body, at: responses.createdAt, from: responses.fromAddress, handled: responses.handled, contact: { id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, company: contacts.company, phone: contacts.phone } })
+    .from(responses)
+    .innerJoin(contacts, eq(contacts.id, responses.contactId))
+    .where(and(eq(responses.channel, 'whatsapp'), eq(responses.kind, 'reply')))
+    .orderBy(desc(responses.createdAt))
+    .limit(300)
+  if (inbound.length === 0) return []
+  const contactIds = [...new Set(inbound.map((row) => row.contact.id))]
+  const outbound = await db
+    .select({ contactId: events.contactId, data: events.data, at: events.createdAt })
+    .from(events)
+    .where(and(eq(events.type, 'wa_reply'), inArray(events.contactId, contactIds)))
+    .orderBy(desc(events.createdAt))
+    .limit(300)
+  const threads = new Map<string, { contact: (typeof inbound)[number]['contact']; lastInboundAt: Date; from: string | null; verified: boolean; unhandled: number; messages: ConversationMessage[] }>()
+  for (const row of inbound) {
+    const thread = threads.get(row.contact.id) ?? { contact: row.contact, lastInboundAt: row.at, from: row.from, verified: Boolean(row.from && row.from === row.contact.phone), unhandled: 0, messages: [] }
+    if (row.at > thread.lastInboundAt) {
+      thread.lastInboundAt = row.at
+      thread.from = row.from
+      thread.verified = Boolean(row.from && row.from === row.contact.phone)
+    }
+    if (!row.handled) thread.unhandled += 1
+    thread.messages.push({ direction: 'in', text: row.body ?? '', at: row.at })
+    threads.set(row.contact.id, thread)
+  }
+  for (const row of outbound) {
+    if (!row.contactId) continue
+    const thread = threads.get(row.contactId)
+    if (!thread) continue
+    const text = typeof row.data.text === 'string' ? row.data.text : ''
+    thread.messages.push({ direction: 'out', text, at: row.at })
+  }
+  return [...threads.values()]
+    .map((thread) => ({ ...thread, messages: thread.messages.sort((left, right) => left.at.getTime() - right.at.getTime()).slice(-6) }))
+    .sort((left, right) => right.lastInboundAt.getTime() - left.lastInboundAt.getTime())
+    .slice(0, limit)
 }

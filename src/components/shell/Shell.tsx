@@ -2,12 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { FileUp, Inbox, LayoutDashboard, LogOut, MessageCircle, Moon, PanelLeftClose, PanelLeftOpen, Send, Settings, Sun, Users } from 'lucide-react'
+import { FileUp, Inbox, LayoutDashboard, LogOut, MessageCircle, PanelLeftClose, PanelLeftOpen, Send, Settings, Users } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
-import { useTheme } from './theme'
+import { RavenBadge } from '@/components/brand/RavenMark'
+import { WienerCredit, WienerMark } from '@/components/brand/WienerMark'
+import { ThemeToggle } from './ThemeToggle'
 
 interface Item {
   href: string
@@ -45,9 +46,8 @@ function NavItem({ item, collapsed, pathname }: { item: Item; collapsed: boolean
   )
 }
 
-export function Shell({ children, inboxCount, whatsappCount, tagline }: { children: ReactNode; inboxCount: number; whatsappCount: number; tagline: string }) {
+export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: { children: ReactNode; inboxCount: number; whatsappCount: number; tagline: string; viewer: string | null }) {
   const pathname = usePathname()
-  const { theme, toggle } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export function Shell({ children, inboxCount, whatsappCount, tagline }: { childr
         }
       >
         <Link href="/" className={'flex items-center gap-2.5 text-xl tracking-tight text-ink ' + (collapsed ? 'justify-center px-0' : 'px-3')} title="Raven">
-          <Image src="/brand/wiener-mark-256.png" alt="" width={28} height={28} className="h-7 w-7 shrink-0 dark:invert" draggable={false} priority />
+          <RavenBadge className="h-8 w-8" />
           {collapsed ? null : 'Raven'}
         </Link>
         <div className="mt-8 space-y-1">
@@ -110,7 +110,7 @@ export function Shell({ children, inboxCount, whatsappCount, tagline }: { childr
           ))}
         </div>
         <div className={'mt-auto space-y-2 ' + (collapsed ? 'px-0' : 'px-3')}>
-          {collapsed ? null : <span className="pill">Wiener Labs iç aracı</span>}
+          {collapsed ? <div className="flex justify-center py-1"><WienerMark size={14} /></div> : <WienerCredit className="px-0 py-1" />}
           <button
             type="button"
             onClick={toggleCollapsed}
@@ -127,23 +127,15 @@ export function Shell({ children, inboxCount, whatsappCount, tagline }: { childr
       <div className={'transition-[padding] duration-200 ' + (collapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-60')}>
         <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface/80 px-5 py-3 backdrop-blur">
           <Link href="/" className="flex items-center gap-2 text-lg tracking-tight text-ink lg:hidden">
-            <Image src="/brand/wiener-mark-256.png" alt="" width={24} height={24} className="h-6 w-6 dark:invert" draggable={false} />
+            <RavenBadge className="h-7 w-7" />
             Raven
           </Link>
           <div className="hidden items-center gap-3 text-sm text-mute lg:flex">
             <span>{tagline}</span>
           </div>
           <div className="flex items-center gap-2">
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.94 }}
-              onClick={toggle}
-              title={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
-              aria-label={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-line text-mute transition hover:border-accent-strong hover:text-ink"
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </motion.button>
+            {viewer ? <span className="hidden text-xs text-mute sm:inline">{viewer}</span> : null}
+            <ThemeToggle />
             <form action={logout}>
               <motion.button
                 type="submit"
@@ -159,7 +151,10 @@ export function Shell({ children, inboxCount, whatsappCount, tagline }: { childr
         </header>
         <main className="mx-auto w-full max-w-6xl px-5 pb-28 pt-6 lg:pb-16">{children}</main>
         <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-5 text-xs text-mute">
-          <span>Raven, Wiener Labs için kişiye özel çözüm ve iletişim motoru</span>
+          <span className="inline-flex items-center gap-2">
+            <WienerMark size={14} />
+            Raven, Wiener Labs için kişiye özel çözüm ve iletişim motoru
+          </span>
           <span>Gönderimler mesai saatlerinde, kademeli ilerler</span>
         </footer>
       </div>

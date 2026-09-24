@@ -5,13 +5,13 @@ import { navCounts } from '@/lib/queries'
 import { requireAdmin } from '@/lib/security/session'
 
 export default async function PanelLayout({ children }: LayoutProps<'/'>) {
-  await requireAdmin()
+  const session = await requireAdmin()
   const db = await getDb()
   const counts = await navCounts(db)
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      <Shell inboxCount={counts.inbox} whatsappCount={counts.whatsapp} tagline="Kişiye özel AI çözümleri, herkese kendi dilinden">
+      <Shell inboxCount={counts.inbox} whatsappCount={counts.whatsapp} tagline="Kişiye özel AI çözümleri, herkese kendi dilinden" viewer={session.name}>
         {children}
       </Shell>
     </>

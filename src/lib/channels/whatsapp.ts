@@ -1,10 +1,26 @@
 import { createHmac } from 'node:crypto'
-import { whatsappCloud } from '@/lib/env'
 import { whatsappDigits } from '@/lib/contacts/phone'
 import { safeEqual } from '@/lib/security/tokens'
+import type { CloudConfig } from '@/lib/whatsapp/config'
 
 export function waMeLink(phone: string, text: string): string {
   return `https://wa.me/${whatsappDigits(phone)}?text=${encodeURIComponent(text)}`
+}
+
+export function chatReference(slug: string): string {
+  return `R-${slug}`
+}
+
+export function findReference(text: string | null): string | null {
+  if (!text) return null
+  const match = /(?:^|[^0-9A-Za-z])R-([0-9A-Za-z]{10})(?![0-9A-Za-z])/.exec(text)
+  return match ? match[1] : null
+}
+
+export function clickToChatText(input: { language: 'tr' | 'en'; company: string; solution: string; slug: string }): string {
+  const reference = chatReference(input.slug)
+  if (input.language === 'en') return `Hello, I am writing about the ${input.solution} brief you prepared for ${input.company}. (${reference})`
+  return `Merhaba, ${input.company} için hazırladığınız ${input.solution} taslağı hakkında yazıyorum. (${reference})`
 }
 
 export interface TemplateSend {
@@ -16,8 +32,11 @@ export interface TemplateSend {
   language: string
 }
 
+function clean(value: string): string {
+  return value.replace(/[\n\t]+/g, ' ').replace(/ {4,}/g, '   ').trim().slice(0, 120)
+}
+
 export function templatePayload(input: TemplateSend, templateName: string) {
-  const clean = (value: string) => value.replace(/[\n\t]+/g, ' ').replace(/ {4,}/g, '   ').trim().slice(0, 120)
   return {
     messaging_product: 'whatsapp',
     to: whatsappDigits(input.to),
@@ -40,6 +59,50 @@ export function templatePayload(input: TemplateSend, templateName: string) {
   }
 }
 
+export interface TemplateDefinition {
+  language: 'tr' | 'en'
+  body: string
+  footer: string
+  button: string
+  url: string
+  example: { body: [string, string, string]; url: string }
+}
+
+export function templateDefinitions(base: string): TemplateDefinition[] {
+  const url = `${base.replace(/\/+$/, '')}/r/{{1}}`
+  return [
+    {
+      language: 'tr',
+      body: 'Merhaba {{1}}, {{2}} için yapay zekâ destekli bir çözüm taslağı hazırladık: {{3}}. Nasıl çalışacağını kısa bir sayfada özetledik. Görüşmek isterseniz bu mesaja yanıt vermeniz yeterli.',
+      footer: 'Wiener Labs · Mesaj istemezseniz DUR yazın',
+      button: 'Taslağı aç',
+      url,
+      example: { body: ['Mert', 'Rotaport', 'Rota Asistanı'], url: 'ornek1234?m=t&s=wa' },
+    },
+    {
+      language: 'en',
+      body: 'Hello {{1}}, we prepared an AI solution brief for {{2}}: {{3}}. It fits on one short page. If you would like to talk, simply reply to this message.',
+      footer: 'Wiener Labs · Reply STOP to opt out',
+      button: 'Open the brief',
+      url,
+      example: { body: ['Mert', 'Rotaport', 'Route Assistant'], url: 'sample1234?m=t&s=wa' },
+    },
+  ]
+}
+
+export function templateCreatePayload(name: string, definition: TemplateDefinition) {
+  return {
+    name,
+    language: definition.language,
+    category: 'MARKETING',
+    components: [
+      { type: 'BODY', text: definition.body, example: { body_text: [definition.example.body] } },
+      { type: 'FOOTER', text: definition.footer },
+      { type: 'BUTTONS', buttons: [{ type: 'URL', text: definition.button, url: definition.url, example: [definition.example.url] }] },
+    ],
+  }
+}
+
 export interface WhatsappSendResult {
   providerId: string | null
   permanentFailure: boolean
@@ -49,25 +112,74 @@ export interface WhatsappSendResult {
 
 const unsentNetworkCodes = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'])
 
-export async function sendWhatsappTemplate(input: TemplateSend): Promise<WhatsappSendResult> {
-  const config = whatsappCloud()
-  if (!config.token || !config.phoneNumberId) return { providerId: null, permanentFailure: false, retryable: false, error: 'WhatsApp Cloud API is not configured' }
+interface GraphError {
+  error?: { message?: string; code?: number; error_subcode?: number }
+}
+
+async function graph<T>(config: CloudConfig, path: string, init: { method?: string; body?: unknown } = {}): Promise<{ ok: boolean; status: number; data: T & GraphError; networkCode: string | null; failure: string | null }> {
   try {
-    const response = await fetch(`https://graph.facebook.com/${config.apiVersion}/${config.phoneNumberId}/messages`, {
-      method: 'POST',
+    const response = await fetch(`https://graph.facebook.com/${config.apiVersion}/${path}`, {
+      method: init.method ?? 'GET',
       headers: { authorization: `Bearer ${config.token}`, 'content-type': 'application/json' },
-      body: JSON.stringify(templatePayload(input, config.templateName)),
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
       signal: AbortSignal.timeout(20_000),
     })
-    const payload = (await response.json().catch(() => ({}))) as { messages?: Array<{ id: string }>; error?: { message?: string; code?: number } }
-    const id = payload.messages?.[0]?.id
-    if (response.ok && id) return { providerId: id, permanentFailure: false, retryable: false, error: null }
-    const permanent = response.status >= 400 && response.status < 500 && response.status !== 429
-    return { providerId: null, permanentFailure: permanent, retryable: response.status === 429 || response.status >= 500, error: `whatsapp ${response.status}: ${payload.error?.message ?? 'unknown error'}` }
+    const data = (await response.json().catch(() => ({}))) as T & GraphError
+    return { ok: response.ok, status: response.status, data, networkCode: null, failure: response.ok ? null : `whatsapp ${response.status}: ${data.error?.message ?? 'unknown error'}` }
   } catch (error) {
     const cause = (error as { cause?: { code?: string } }).cause
-    return { providerId: null, permanentFailure: false, retryable: Boolean(cause?.code && unsentNetworkCodes.has(cause.code)), error: error instanceof Error ? error.message : String(error) }
+    return { ok: false, status: 0, data: {} as T & GraphError, networkCode: cause?.code ?? null, failure: error instanceof Error ? error.message : String(error) }
   }
+}
+
+function sendResult(result: Awaited<ReturnType<typeof graph<{ messages?: Array<{ id: string }> }>>>): WhatsappSendResult {
+  const id = result.data.messages?.[0]?.id
+  if (result.ok && id) return { providerId: id, permanentFailure: false, retryable: false, error: null }
+  if (result.status === 0) return { providerId: null, permanentFailure: false, retryable: Boolean(result.networkCode && unsentNetworkCodes.has(result.networkCode)), error: result.failure }
+  const permanent = result.status >= 400 && result.status < 500 && result.status !== 429
+  return { providerId: null, permanentFailure: permanent, retryable: result.status === 429 || result.status >= 500, error: result.failure }
+}
+
+export async function sendWhatsappTemplate(config: CloudConfig | null, input: TemplateSend): Promise<WhatsappSendResult> {
+  if (!config) return { providerId: null, permanentFailure: false, retryable: false, error: 'WhatsApp Cloud API is not configured' }
+  return sendResult(await graph<{ messages?: Array<{ id: string }> }>(config, `${config.phoneNumberId}/messages`, { method: 'POST', body: templatePayload(input, config.templateName) }))
+}
+
+export async function sendWhatsappText(config: CloudConfig, to: string, body: string): Promise<WhatsappSendResult> {
+  const payload = { messaging_product: 'whatsapp', to: whatsappDigits(to), type: 'text', text: { body: body.slice(0, 4000), preview_url: true } }
+  return sendResult(await graph<{ messages?: Array<{ id: string }> }>(config, `${config.phoneNumberId}/messages`, { method: 'POST', body: payload }))
+}
+
+export async function phoneNumberInfo(config: CloudConfig): Promise<{ ok: true; displayNumber: string; name: string; quality: string } | { ok: false; error: string }> {
+  const result = await graph<{ display_phone_number?: string; verified_name?: string; quality_rating?: string }>(config, `${config.phoneNumberId}?fields=display_phone_number,verified_name,quality_rating`)
+  if (!result.ok) return { ok: false, error: result.failure ?? 'unknown error' }
+  return { ok: true, displayNumber: result.data.display_phone_number ?? '', name: result.data.verified_name ?? '', quality: result.data.quality_rating ?? '' }
+}
+
+export interface TemplateStatus {
+  language: string
+  status: string
+  reason: string | null
+}
+
+export async function templateStatuses(config: CloudConfig): Promise<{ ok: true; templates: TemplateStatus[] } | { ok: false; error: string }> {
+  if (!config.wabaId) return { ok: false, error: 'WhatsApp Business hesap kimliği (WABA ID) girilmemiş' }
+  const result = await graph<{ data?: Array<{ language?: string; status?: string; rejected_reason?: string }> }>(config, `${config.wabaId}/message_templates?name=${encodeURIComponent(config.templateName)}&fields=name,language,status,rejected_reason&limit=20`)
+  if (!result.ok) return { ok: false, error: result.failure ?? 'unknown error' }
+  return {
+    ok: true,
+    templates: (result.data.data ?? []).map((row) => ({ language: row.language ?? '', status: row.status ?? '', reason: row.rejected_reason && row.rejected_reason !== 'NONE' ? row.rejected_reason : null })),
+  }
+}
+
+export async function submitTemplates(config: CloudConfig, base: string): Promise<Array<{ language: string; ok: boolean; detail: string }>> {
+  if (!config.wabaId) return [{ language: '', ok: false, detail: 'WhatsApp Business hesap kimliği (WABA ID) girilmemiş' }]
+  const out: Array<{ language: string; ok: boolean; detail: string }> = []
+  for (const definition of templateDefinitions(base)) {
+    const result = await graph<{ id?: string; status?: string }>(config, `${config.wabaId}/message_templates`, { method: 'POST', body: templateCreatePayload(config.templateName, definition) })
+    out.push({ language: definition.language, ok: result.ok, detail: result.ok ? (result.data.status ?? 'PENDING') : (result.failure ?? 'unknown error') })
+  }
+  return out
 }
 
 export function verifyMetaSignature(rawBody: string, header: string | null, appSecret: string): boolean {

@@ -7,6 +7,7 @@ export interface MessageLinks {
   unsubscribeOneClick: string
   openPixel: string
   whatsappLanding: string
+  whatsappChat: string
 }
 
 export function buildLinks(baseUrl: string, slug: string, token: string): MessageLinks {
@@ -23,5 +24,6 @@ export function buildLinks(baseUrl: string, slug: string, token: string): Messag
     unsubscribeOneClick: `${base}/api/unsubscribe/${token}`,
     openPixel: `${base}/api/track/open/${token}`,
     whatsappLanding: `${base}/r/${slug}?m=${token}&s=wa`,
+    whatsappChat: `${base}/r/${slug}/whatsapp?m=${token}&s=email`,
   }
 }

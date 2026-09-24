@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "events_wa_inbound_unique" ON "events" USING btree (("data"->>'id')) WHERE "events"."type" = 'wa_inbound';

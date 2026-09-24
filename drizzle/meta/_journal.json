@@ -15,6 +15,20 @@
       "when": 1790200401574,
       "tag": "0001_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790228057741,
+      "tag": "0002_passkeys",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790230215008,
+      "tag": "0003_whatsapp_dedupe",
+      "breakpoints": true
     }
   ]
 }

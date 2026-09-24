@@ -83,6 +83,7 @@ export async function recordResponse(
     body?: string | null
     fromAddress?: string | null
     at?: Date
+    advance?: boolean
   },
 ): Promise<{ id: string; duplicate: boolean }> {
   const at = input.at ?? new Date()
@@ -108,7 +109,7 @@ export async function recordResponse(
     })
     .returning({ id: responses.id })
   await recordEvent(db, { contactId: input.contactId, messageId: input.messageId, type: input.kind === 'auto_reply' ? 'auto_reply' : 'response', data: { intent: input.intent, channel: input.channel, kind: input.kind }, at })
-  const stage = intentStage(input.intent, input.kind)
+  const stage = input.advance === false ? null : intentStage(input.intent, input.kind)
   if (stage) {
     await moveStage(db, input.contactId, stage)
     await cancelPending(db, input.contactId, `stopped: ${input.kind} ${input.intent}`)

@@ -5,19 +5,25 @@ import { loginAttempts } from '@/lib/db/schema'
 export const LOGIN_WINDOW_MS = 15 * 60 * 1000
 export const LOGIN_LIMITS = { ip: 10, global: 40 }
 
-function keysFor(ip: string): string[] {
-  return [`ip:${ip}`, 'global']
+export interface LimitScope {
+  global: boolean
 }
 
-export async function loginBlocked(db: Database, ip: string, now = new Date()): Promise<boolean> {
-  const rows = await db.select().from(loginAttempts).where(inArray(loginAttempts.key, keysFor(ip)))
+const passwordScope: LimitScope = { global: true }
+
+function keysFor(ip: string, scope: LimitScope): string[] {
+  return scope.global ? [`ip:${ip}`, 'global'] : [`ip:${ip}`]
+}
+
+export async function loginBlocked(db: Database, ip: string, now = new Date(), scope: LimitScope = passwordScope): Promise<boolean> {
+  const rows = await db.select().from(loginAttempts).where(inArray(loginAttempts.key, keysFor(ip, scope)))
   return rows.some((row) => row.resetAt.getTime() > now.getTime() && row.count >= (row.key === 'global' ? LOGIN_LIMITS.global : LOGIN_LIMITS.ip))
 }
 
-export async function registerLoginFailure(db: Database, ip: string, now = new Date()): Promise<void> {
+export async function registerLoginFailure(db: Database, ip: string, now = new Date(), scope: LimitScope = passwordScope): Promise<void> {
   const nowIso = now.toISOString()
   const resetIso = new Date(now.getTime() + LOGIN_WINDOW_MS).toISOString()
-  for (const key of keysFor(ip)) {
+  for (const key of keysFor(ip, scope)) {
     await db
       .insert(loginAttempts)
       .values({ key, count: 1, resetAt: new Date(resetIso) })
