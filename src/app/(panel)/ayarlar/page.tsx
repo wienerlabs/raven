@@ -6,6 +6,9 @@ import { emailProviderLabel } from '@/lib/channels/email'
 import { saveSettingsAction } from '@/app/actions/settings'
 import { accessOverview } from '@/lib/auth/passkeys'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { getAuthPolicy } from '@/lib/auth/policy'
+import { getBrand } from '@/lib/brand/logo'
+import { BrandLogoCard } from './BrandLogoCard'
 import { isMemberSession, requireAdmin } from '@/lib/security/session'
 import { SettingsForm } from './SettingsForm'
 import { SenderChecks } from './SenderChecks'
@@ -25,7 +28,9 @@ function Line({ label, value, ok }: { label: string; value: string; ok?: boolean
 export default async function SettingsPage() {
   const session = await requireAdmin()
   const db = await getDb()
-  const [settings, access, whatsapp] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db)])
+  const [settings, access, whatsapp, policy, brand] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db), getAuthPolicy(db), getBrand(db)])
+  const viewerMemberId = isMemberSession(session) ? session.sub : null
+  const viewerHasPasskey = Boolean(viewerMemberId && access.members.some((member) => member.id === viewerMemberId && member.passkeys.length > 0))
   const env = environmentSummary()
   return (
     <div className="space-y-8">
@@ -42,9 +47,13 @@ export default async function SettingsPage() {
           passkeys: member.passkeys.map((key) => ({ id: key.id, label: key.label, createdAt: key.createdAt.toISOString(), lastUsedAt: key.lastUsedAt?.toISOString() ?? null, backedUp: key.backedUp })),
         }))}
         invites={access.invites.map((invite) => ({ id: invite.id, name: invite.name, expiresAt: invite.expiresAt.toISOString() }))}
-        viewerMemberId={isMemberSession(session) ? session.sub : null}
+        viewerMemberId={viewerMemberId}
         viewerName={session.name}
+        passwordLogin={policy.passwordLogin}
+        canLockToPasskeys={viewerHasPasskey}
       />
+
+      <BrandLogoCard logo={brand.logo ? { hash: brand.logo.hash, width: brand.logo.width, height: brand.logo.height, size: brand.logo.size } : null} showCompanyName={brand.showCompanyName} company={settings.sender.company} />
 
       <SettingsForm action={saveSettingsAction} settings={settings} />
 

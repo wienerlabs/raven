@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowRight, Check, MessageCircle, ShieldCheck } from 'lucide-react'
@@ -11,6 +10,8 @@ import { formatDate } from '@/lib/labels'
 import { isAdmin } from '@/lib/security/session'
 import { leaveNote } from '@/app/actions/public'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { getBrand } from '@/lib/brand/logo'
+import { BrandMark } from '@/components/brand/BrandMark'
 import { clickToChatText, waMeLink } from '@/lib/channels/whatsapp'
 import { NoteForm } from './NoteForm'
 import { ViewBeacon } from './ViewBeacon'
@@ -52,7 +53,7 @@ export default async function LandingPage({ params, searchParams }: PageProps<'/
   const found = await contactBySlug(db, slug)
   if (!found) notFound()
   const { pitch } = found
-  const [settings, whatsapp] = await Promise.all([getSettings(db), resolveWhatsapp(db)])
+  const [settings, whatsapp, brand] = await Promise.all([getSettings(db), resolveWhatsapp(db), getBrand(db)])
   const copy = landingCopy[pitch.language]
   const token = tokenFrom(query.m)
   const testVisit = await isTestToken(db, token)
@@ -75,10 +76,7 @@ export default async function LandingPage({ params, searchParams }: PageProps<'/
       <div className="raven-backdrop" aria-hidden />
       {showPreviewBanner ? <div className="bg-ink px-5 py-2 text-center text-xs text-surface">{testVisit ? 'Test e-postasından açtınız: ziyaret ve yanıtlar kaydedilmiyor.' : 'Önizleme modu: bu ziyaret kaydedilmiyor.'}</div> : null}
       <header className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-6">
-        <div className="flex items-center gap-2.5 text-lg tracking-tight text-ink">
-          <Image src="/brand/wiener-mark-256.png" alt="" width={26} height={26} className="h-[26px] w-[26px]" priority />
-          {sender.company}
-        </div>
+        <BrandMark brand={brand} company={sender.company} />
         <span className="pill bg-surface/80 backdrop-blur">
           {copy.preparedFor(pitch.company.name)} · {formatDate(new Date())}
         </span>

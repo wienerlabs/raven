@@ -4,6 +4,7 @@ import { campaigns, contacts, events, messages, pitches, type CampaignConfig } f
 import { activeSenders, getTransport, senderDomain, type EmailTransport } from '@/lib/channels/email'
 import { sendWhatsappTemplate, type TemplateSend, type WhatsappSendResult } from '@/lib/channels/whatsapp'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { getBrand, type BrandSettings } from '@/lib/brand/logo'
 import { renderEmail } from '@/lib/email/render'
 import { baseUrl as resolveBaseUrl, type SenderConfig } from '@/lib/env'
 import { getSettings, type AppSettings } from '@/lib/settings'
@@ -177,7 +178,7 @@ async function runDispatch(
   report.claimed = claimed.length
   if (claimed.length === 0) return
   const settings = await getSettings(db)
-  const whatsapp = await resolveWhatsapp(db)
+  const [whatsapp, brand] = await Promise.all([resolveWhatsapp(db), getBrand(db)])
   const whatsappSend = options.whatsappSend ?? ((input: TemplateSend) => sendWhatsappTemplate(whatsapp.cloud, input))
   const campaignIds = [...new Set(claimed.map((message) => message.campaignId).filter((id): id is string => Boolean(id)))]
   const campaignRows = campaignIds.length ? await db.select().from(campaigns).where(inArray(campaigns.id, campaignIds)) : []
@@ -193,6 +194,7 @@ async function runDispatch(
         settings,
         whatsappSend,
         whatsappNumber: whatsapp.businessNumber,
+        brand,
         config: (message.campaignId && configs.get(message.campaignId)) || defaultCampaignConfig,
       })
       report[outcome.kind] += 1
@@ -216,6 +218,7 @@ interface ProcessContext {
   settings: AppSettings
   whatsappSend: (input: TemplateSend) => Promise<WhatsappSendResult>
   whatsappNumber: string | null
+  brand: BrandSettings
   config: CampaignConfig
 }
 
@@ -282,6 +285,7 @@ async function processMessage(db: Database, message: MessageRow, context: Proces
     replyTo,
     firstSubject: thread.firstSubject,
     whatsappNumber: context.whatsappNumber,
+    brand: context.brand,
   })
   const rfcMessageId = `<${message.token}@${senderDomain(sender)}>`
   const subject = message.isTest ? `Test: ${rendered.subject}` : rendered.subject

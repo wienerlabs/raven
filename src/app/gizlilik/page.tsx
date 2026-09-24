@@ -1,14 +1,15 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import { getDb } from '@/lib/db'
 import { getSettings } from '@/lib/settings'
+import { getBrand } from '@/lib/brand/logo'
+import { BrandMark } from '@/components/brand/BrandMark'
 
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: { absolute: 'Aydınlatma metni · Wiener Labs' } }
 
 export default async function PrivacyPage() {
   const db = await getDb()
-  const settings = await getSettings(db)
+  const [settings, brand] = await Promise.all([getSettings(db), getBrand(db)])
   const { legal } = settings
   const controller = [legal.companyName || settings.sender.company, legal.address, legal.mersis ? `MERSİS: ${legal.mersis}` : ''].filter(Boolean).join(', ')
   const contactEmail = legal.contactEmail
@@ -16,10 +17,7 @@ export default async function PrivacyPage() {
     <div className="light-scope relative min-h-screen">
       <div className="raven-backdrop" aria-hidden />
       <main className="mx-auto w-full max-w-3xl px-5 py-12">
-        <div className="flex items-center gap-2.5 text-lg tracking-tight text-ink">
-          <Image src="/brand/wiener-mark-256.png" alt="" width={24} height={24} className="h-6 w-6" />
-          {settings.sender.company}
-        </div>
+        <BrandMark brand={brand} company={settings.sender.company} size={24} />
         <article className="card mt-8 space-y-6 p-8 text-sm leading-7 text-body">
           <div>
             <h1 className="text-3xl tracking-tight text-ink">İş iletişimi aydınlatma metni</h1>

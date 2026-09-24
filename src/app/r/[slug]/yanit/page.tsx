@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { getDb } from '@/lib/db'
 import { contactBySlug, isTestToken } from '@/lib/public'
 import { getSettings } from '@/lib/settings'
+import { getBrand } from '@/lib/brand/logo'
+import { BrandMark } from '@/components/brand/BrandMark'
 import { landingCopy } from '@/lib/landing-copy'
 import { leaveNote } from '@/app/actions/public'
 import { IntentConfirm } from './IntentConfirm'
@@ -26,7 +27,7 @@ export default async function IntentPage({ params, searchParams }: PageProps<'/r
   const found = await contactBySlug(db, slug)
   if (!found) notFound()
   const { pitch } = found
-  const settings = await getSettings(db)
+  const [settings, brand] = await Promise.all([getSettings(db), getBrand(db)])
   const copy = landingCopy[pitch.language]
   const token = typeof query.m === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(query.m) ? query.m : null
   const testVisit = await isTestToken(db, token)
@@ -38,10 +39,7 @@ export default async function IntentPage({ params, searchParams }: PageProps<'/r
     <div className="light-scope relative flex min-h-screen flex-col" lang={pitch.language}>
       <div className="raven-backdrop" aria-hidden />
       <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-6">
-        <div className="flex items-center gap-2.5 text-lg tracking-tight text-ink">
-          <Image src="/brand/wiener-mark-256.png" alt="" width={26} height={26} className="h-[26px] w-[26px]" priority />
-          {settings.sender.company}
-        </div>
+        <BrandMark brand={brand} company={settings.sender.company} />
         <Link href={back} className="chip">
           <ArrowLeft className="h-3 w-3" /> {copy.backToBrief}
         </Link>

@@ -19,6 +19,8 @@ import { DetailActions } from './DetailActions'
 import { PitchEditor } from './PitchEditor'
 import { PreviewTabs } from './PreviewTabs'
 import { TestSendForm } from './TestSendForm'
+import { getBrand } from '@/lib/brand/logo'
+import { resolveWhatsapp } from '@/lib/whatsapp/config'
 
 export const metadata: Metadata = { title: 'Kişi' }
 
@@ -28,7 +30,7 @@ export default async function ContactPage({ params }: PageProps<'/kisiler/[id]'>
   const detail = await contactDetail(db, id)
   if (!detail) notFound()
   const { contact, pitch } = detail
-  const settings = await getSettings(db)
+  const [settings, brand, whatsapp] = await Promise.all([getSettings(db), getBrand(db), resolveWhatsapp(db)])
   const base = baseUrl()
   const sender = activeSenders()[0]
   const replyTo = sender?.replyTo ?? sender?.email ?? 'raven@localhost.test'
@@ -38,7 +40,7 @@ export default async function ContactPage({ params }: PageProps<'/kisiler/[id]'>
   const previews = content
     ? [0, 1, 2].map((step) =>
         renderEmail(
-          { pitch: content, contact: { slug: contact.slug, company: contact.company }, message: { token: previewToken, step, variant: 'a' }, settings, baseUrl: base, replyTo, firstSubject: content.email.subject },
+          { pitch: content, contact: { slug: contact.slug, company: contact.company }, message: { token: previewToken, step, variant: 'a' }, settings, baseUrl: base, replyTo, firstSubject: content.email.subject, brand, whatsappNumber: whatsapp.businessNumber },
           false,
         ),
       )

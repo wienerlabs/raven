@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Copy, ScanFace, Smartphone, UserPlus } from 'lucide-react'
+import { Check, Copy, KeyRound, ScanFace, Smartphone, UserPlus } from 'lucide-react'
 import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser'
-import { createInviteAction, passkeyRegisterOptions, passkeyRegisterVerify, removeMemberAction, removePasskeyAction, revokeInviteAction } from '@/app/actions/passkeys'
+import { createInviteAction, passkeyRegisterOptions, passkeyRegisterVerify, removeMemberAction, removePasskeyAction, revokeInviteAction, setPasswordLoginAction } from '@/app/actions/passkeys'
 import { MotionButton } from '@/components/ui/MotionButton'
 import { webauthnMessage } from '@/components/auth/webauthn-messages'
 
@@ -44,7 +44,7 @@ function MemberPicker({ members, value, onChange, name, onName }: { members: Acc
   )
 }
 
-export function AccessPanel({ members, invites, viewerMemberId, viewerName }: { members: AccessMember[]; invites: AccessInvite[]; viewerMemberId: string | null; viewerName: string }) {
+export function AccessPanel({ members, invites, viewerMemberId, viewerName, passwordLogin, canLockToPasskeys }: { members: AccessMember[]; invites: AccessInvite[]; viewerMemberId: string | null; viewerName: string; passwordLogin: boolean; canLockToPasskeys: boolean }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [notice, setNotice] = useState<string | null>(null)
@@ -218,6 +218,23 @@ export function AccessPanel({ members, invites, viewerMemberId, viewerName }: { 
             </ul>
           </div>
         ))}
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-start justify-between gap-4 rounded-3xl border border-line p-5">
+        <div className="min-w-0 flex-1 basis-72">
+          <div className="flex items-center gap-2 text-sm text-ink">
+            <KeyRound className="h-4 w-4" /> Giriş yöntemi
+          </div>
+          <p className="mt-1 text-xs text-mute">
+            {passwordLogin
+              ? 'Şu an Face ID cihazları ve yönetici şifresi birlikte çalışıyor. Ekip cihazlarını ekledikten sonra şifreyi kapatırsanız panele yalnızca buradaki kişiler girebilir.'
+              : 'Yönetici şifresi kapalı: panele yalnızca aşağıdaki kişilerin kayıtlı cihazlarıyla girilir. Tüm cihazlar kaybolursa Vercel ortamında RAVEN_PASSWORD_LOGIN=force ile şifre geçici olarak açılır.'}
+          </p>
+          {passwordLogin && !canLockToPasskeys ? <p className="mt-2 text-xs text-mute">Kapatmak için önce bu cihaza Face ID ekleyip Face ID ile giriş yapın.</p> : null}
+        </div>
+        <MotionButton small variant={passwordLogin ? 'primary' : 'ghost'} disabled={pending || (passwordLogin && !canLockToPasskeys)} onClick={() => act(() => setPasswordLoginAction(!passwordLogin))}>
+          {passwordLogin ? 'Yalnızca Face ID ile girilsin' : 'Şifreyle girişi yeniden aç'}
+        </MotionButton>
       </div>
 
       {invites.length ? (

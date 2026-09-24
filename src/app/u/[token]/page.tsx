@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
 import { getDb } from '@/lib/db'
 import { tokenContext } from '@/lib/public'
+import { getSettings } from '@/lib/settings'
+import { getBrand } from '@/lib/brand/logo'
+import { BrandMark } from '@/components/brand/BrandMark'
 import { unsubscribeByToken } from '@/app/actions/public'
 import { UnsubscribeForm } from './UnsubscribeForm'
 
@@ -35,16 +37,14 @@ export default async function UnsubscribePage({ params }: PageProps<'/u/[token]'
   const { token } = await params
   const db = await getDb()
   const context = /^[A-Za-z0-9_-]{16,64}$/.test(token) ? await tokenContext(db, token) : null
+  const [settings, brand] = await Promise.all([getSettings(db), getBrand(db)])
   const copy = text[context?.language ?? 'tr']
   const already = context?.contact.stage === 'unsubscribed'
   return (
     <div className="light-scope relative flex min-h-screen items-center justify-center px-5">
       <div className="raven-backdrop" aria-hidden />
       <div className="card w-full max-w-lg p-8">
-        <div className="flex items-center gap-2.5 text-lg tracking-tight text-ink">
-          <Image src="/brand/wiener-mark-256.png" alt="" width={24} height={24} className="h-6 w-6" />
-          Wiener Labs
-        </div>
+        <BrandMark brand={brand} company={settings.sender.company} size={24} />
         {!context ? (
           <p className="mt-6 text-base text-ink">{copy.invalid}</p>
         ) : already ? (

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import type { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON, RegistrationResponseJSON } from '@simplewebauthn/server'
 import { getDb } from '@/lib/db'
 import { invites, members, passkeys } from '@/lib/db/schema'
+import { setPasswordLogin } from '@/lib/auth/policy'
 import { baseUrl } from '@/lib/env'
 import {
   beginLogin,
@@ -182,4 +183,18 @@ export async function removeMemberAction(id: string, confirmation: string): Prom
   const removed = await db.delete(members).where(eq(members.id, id)).returning({ id: members.id })
   revalidatePath('/ayarlar')
   return removed.length ? { ok: true, message: 'Kişinin erişimi kaldırıldı. Açık oturumları da kapandı.' } : { ok: false, message: 'Kişi bulunamadı.' }
+}
+
+export async function setPasswordLoginAction(enabled: boolean): Promise<Outcome> {
+  const session = await requireAdmin()
+  const db = await getDb()
+  if (!enabled) {
+    if (!isMemberSession(session)) return { ok: false, message: 'Şifreyle girişi kapatmadan önce bu tarayıcıda Face ID ile giriş yapın; böylece kendinizi dışarıda bırakmazsınız.' }
+    const [own] = await db.select({ id: passkeys.id }).from(passkeys).where(eq(passkeys.memberId, session.sub)).limit(1)
+    if (!own) return { ok: false, message: 'Hesabınıza kayıtlı bir Face ID cihazı yok.' }
+  }
+  await setPasswordLogin(db, Boolean(enabled))
+  revalidatePath('/ayarlar')
+  revalidatePath('/giris')
+  return { ok: true, message: enabled ? 'Yönetici şifresiyle giriş yeniden açıldı.' : 'Artık yalnızca kayıtlı Face ID cihazlarıyla girilebilir.' }
 }

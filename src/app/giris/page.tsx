@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { redirect } from 'next/navigation'
 import { getDb } from '@/lib/db'
 import { hasPasskeys } from '@/lib/auth/passkeys'
+import { getAuthPolicy, passwordLoginAllowed } from '@/lib/auth/policy'
 import { isAdmin } from '@/lib/security/session'
 import { themeScript } from '@/components/shell/theme-script'
 import { ThemeToggle } from '@/components/shell/ThemeToggle'
@@ -16,7 +17,8 @@ export const viewport: Viewport = { themeColor: '#0b0b0e' }
 export default async function LoginPage() {
   if (await isAdmin()) redirect('/')
   const db = await getDb()
-  const passkeysReady = await hasPasskeys(db)
+  const [passkeysReady, policy] = await Promise.all([hasPasskeys(db), getAuthPolicy(db)])
+  const passwordOpen = passwordLoginAllowed(policy, passkeysReady)
   return (
     <div className="relative flex min-h-screen flex-col px-5">
       <script dangerouslySetInnerHTML={{ __html: themeScript }} />
@@ -33,20 +35,18 @@ export default async function LoginPage() {
           <RavenBadge className="h-16 w-16" />
           <h1 className="mt-7 text-4xl leading-tight tracking-tight text-ink">Her kişiye kendi çözümü.</h1>
           <p className="mt-3 text-sm text-mute">
-            {passkeysReady ? 'Face ID ile ya da yönetici şifresiyle giriş yapın.' : 'Yönetici şifresiyle giriş yapın. Ayarlar sayfasından cihaz eklendiğinde Face ID ile giriş de açılır.'}
+            {!passkeysReady ? 'Yönetici şifresiyle giriş yapın. Ayarlar sayfasından cihaz eklendiğinde Face ID ile giriş de açılır.' : passwordOpen ? 'Face ID ile ya da yönetici şifresiyle giriş yapın.' : 'Bu panele yalnızca kayıtlı cihazlarla, Face ID ile girilir.'}
           </p>
           <div className="card mt-8 space-y-5">
-            {passkeysReady ? (
-              <>
-                <PasskeyLoginButton />
-                <div className="flex items-center gap-3 text-xs text-mute">
-                  <span className="h-px flex-1 bg-line" />
-                  veya
-                  <span className="h-px flex-1 bg-line" />
-                </div>
-              </>
+            {passkeysReady ? <PasskeyLoginButton /> : null}
+            {passkeysReady && passwordOpen ? (
+              <div className="flex items-center gap-3 text-xs text-mute">
+                <span className="h-px flex-1 bg-line" />
+                veya
+                <span className="h-px flex-1 bg-line" />
+              </div>
             ) : null}
-            <LoginForm secondary={passkeysReady} />
+            {passwordOpen ? <LoginForm secondary={passkeysReady} /> : null}
           </div>
         </div>
       </main>

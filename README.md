@@ -1,5 +1,7 @@
 # Raven
 
+Built by [Wiener Labs](https://wienerlabs.xyz), led by Baturalp Güvenç.
+
 Raven is Wiener Labs' personal outreach engine. It turns a contact list into one specific AI solution per person, then reaches every contact with a personal email (or a WhatsApp message when there is no email), a personal one page solution brief, one click replies and polite follow ups. Every step is paced, tracked and stoppable.
 
 The product UI is Turkish. The visual language follows the Paralyx design system: Sora Light, lavender accent reserved for interactive elements, pill buttons and rounded cards. The admin panel and login open in a dark theme by default (a toggle switches to light and is remembered per browser); recipient facing pages and emails stay light and carry the Wiener Labs mark, while the panel carries the Raven mark.
@@ -73,7 +75,13 @@ Inbound messages are classified like email replies, `DUR` or `STOP` suppresses t
 
 ## Face ID sign in
 
-Passkeys use WebAuthn with the relying party set to the host of `RAVEN_BASE_URL`, so they only work on the production domain (and on `localhost` during development). Challenges are single use and expire after five minutes, invites are single use and expire after 48 hours, and removing a person from Settings ends their open sessions.
+Passkeys use WebAuthn with the relying party set to the host of `RAVEN_BASE_URL`, so they only work on the production domain (and on `localhost` during development). Face ID alone does not open the panel: only devices that were added from Settings by a signed in admin, or through a one time invite link created for a named person, are accepted. Challenges are single use and expire after five minutes, invites are single use and expire after 48 hours, and removing a person from Settings ends their open sessions.
+
+Once every team member has a device, "Yalnızca Face ID ile girilsin" turns the admin password off, so only those people can sign in. The switch is only available to someone who signed in with Face ID, the password comes back automatically if no passkey is left, and `RAVEN_PASSWORD_LOGIN=force` reopens it in an emergency.
+
+## Email logo
+
+Settings has an email logo card. Upload a PNG or JPG (up to 512 KB, at least 40 px tall, 56 px or more recommended). Raven checks the real file signature, stores the image in the database and serves it from `/api/brand/logo/<hash>` with long lived caching, so every email and personal page shows it at a fixed 28 px height with explicit dimensions. SVG and WebP are refused because Gmail and Outlook do not display them. Without an upload the Wiener Labs mark is used.
 
 ## Compliance defaults
 

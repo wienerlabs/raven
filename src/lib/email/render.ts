@@ -1,5 +1,6 @@
 import type { Pitch } from '@/lib/pitch/schema'
 import type { AppSettings } from '@/lib/settings'
+import { logoBox, logoPath, type BrandSettings } from '@/lib/brand/logo'
 import { emailCopy } from './copy'
 import { buildLinks, type MessageLinks } from './links'
 
@@ -12,6 +13,7 @@ export interface RenderInput {
   replyTo: string
   firstSubject?: string | null
   whatsappNumber?: string | null
+  brand?: BrandSettings | null
 }
 
 export interface RenderedEmail {
@@ -108,7 +110,7 @@ a{color:${palette.ink};}
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:100%;">
 <tr><td style="padding:0 6px 14px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="vertical-align:middle;"><img src="${escapeHtml(base)}/brand/wiener-mark-email.png" width="26" height="26" alt="Wiener Labs" style="display:inline-block;vertical-align:middle;border:0;width:26px;height:26px;"><span style="display:inline-block;vertical-align:middle;margin-left:8px;font-family:${fontStack};font-size:15px;font-weight:300;letter-spacing:-0.01em;color:${palette.ink};">${escapeHtml(input.settings.sender.company)}</span></td>
+<td style="vertical-align:middle;">${brandHeader(input, base)}</td>
 <td align="right" style="vertical-align:middle;"><span style="display:inline-block;padding:4px 12px;border:1px solid ${palette.accent};border-radius:999px;background:${palette.accentSoft};font-family:${fontStack};font-size:12px;font-weight:300;color:${palette.ink};">${escapeHtml(copy.badge)}</span></td>
 </tr></table>
 </td></tr>
@@ -123,6 +125,16 @@ ${pixel}
 </table>
 </body>
 </html>`
+}
+
+function brandHeader(input: RenderInput, base: string): string {
+  const company = escapeHtml(input.settings.sender.company)
+  const name = `<span style="display:inline-block;vertical-align:middle;margin-left:8px;font-family:${fontStack};font-size:15px;font-weight:300;letter-spacing:-0.01em;color:${palette.ink};">${company}</span>`
+  const logo = input.brand?.logo
+  if (!logo) return `<img src="${escapeHtml(base)}/brand/wiener-mark-email.png" width="26" height="26" alt="${company}" style="display:inline-block;vertical-align:middle;border:0;width:26px;height:26px;">${name}`
+  const box = logoBox(logo)
+  const image = `<img src="${escapeHtml(base)}${logoPath(logo)}" width="${box.width}" height="${box.height}" alt="${company}" style="display:inline-block;vertical-align:middle;border:0;outline:none;text-decoration:none;width:${box.width}px;height:${box.height}px;max-width:${box.width}px;">`
+  return input.brand?.showCompanyName ? `${image}${name}` : image
 }
 
 const bodyStyle = `margin:0 0 16px;font-family:${fontStack};font-size:15px;line-height:25px;font-weight:300;color:${palette.body};`
