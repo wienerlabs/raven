@@ -21,6 +21,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@electric-sql/pglite', 'imapflow', 'mailparser', 'nodemailer', 'exceljs'],
   outputFileTracingIncludes: {
     '/r/[slug]/opengraph-image': ['./assets/**/*'],
+    '/opengraph-image': ['./assets/**/*'],
   },
   experimental: {
     serverActions: { bodySizeLimit: '10mb' },

@@ -4,6 +4,7 @@ import { ImageResponse } from 'next/og'
 import { getDb } from '@/lib/db'
 import { contactBySlug } from '@/lib/public'
 import { landingCopy } from '@/lib/landing-copy'
+import { currentLogoBytes, getBrand, logoBox } from '@/lib/brand/logo'
 
 export const alt = 'Wiener Labs kişisel çözüm taslağı'
 export const size = { width: 1200, height: 630 }
@@ -13,13 +14,15 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ slu
   const { slug } = await params
   const [font, mark] = await Promise.all([readFile(join(process.cwd(), 'assets/sora-light.ttf')), readFile(join(process.cwd(), 'assets/wiener-mark-128.png'))])
   const db = await getDb()
-  const found = await contactBySlug(db, slug)
+  const [found, brand, logo] = await Promise.all([contactBySlug(db, slug), getBrand(db), currentLogoBytes(db)])
   const pitch = found?.pitch
   const copy = landingCopy[pitch?.language ?? 'tr']
   const title = pitch?.solution.name ?? 'Wiener Labs'
   const tagline = pitch?.solution.tagline ?? ''
   const company = pitch?.company.name ?? ''
   const markSrc = `data:image/png;base64,${mark.toString('base64')}`
+  const logoSrc = logo && brand.logo ? `data:${logo.contentType};base64,${Buffer.from(logo.bytes).toString('base64')}` : null
+  const logoSize = brand.logo ? logoBox(brand.logo, 48, 420) : null
   return new ImageResponse(
     (
       <div
@@ -36,10 +39,17 @@ export default async function OpenGraphImage({ params }: { params: Promise<{ slu
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 30 }}>
-            <img src={markSrc} width={44} height={44} alt="" />
-            Wiener Labs
-          </div>
+          {logoSrc && logoSize ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 30 }}>
+              <img src={logoSrc} width={logoSize.width} height={logoSize.height} alt="" />
+              {brand.showCompanyName ? 'Wiener Labs' : null}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 30 }}>
+              <img src={markSrc} width={44} height={44} alt="" />
+              Wiener Labs
+            </div>
+          )}
           {company ? (
             <div style={{ display: 'flex', fontSize: 22, padding: '10px 22px', borderRadius: 999, background: 'rgba(255,255,255,0.7)', border: '1px solid #e6e6e6' }}>{copy.preparedFor(company)}</div>
           ) : null}
