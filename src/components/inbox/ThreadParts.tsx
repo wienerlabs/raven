@@ -5,9 +5,16 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Clock, Info, RotateCcw, X } from 'lucide-react'
 import { setWhatsappHandledAction } from '@/app/actions/whatsapp'
+import { setTelegramHandledAction } from '@/app/actions/telegram'
 import { remaining, remainingShort } from '@/lib/whatsapp/format'
 
 const CLOSING_SOON_MS = 3 * 60 * 60 * 1000
+
+export type InboxChannel = 'whatsapp' | 'telegram'
+
+function handledAction(channel: InboxChannel) {
+  return channel === 'telegram' ? setTelegramHandledAction : setWhatsappHandledAction
+}
 
 export function useNow(initial: string, everyMs = 30000): number {
   const [now, setNow] = useState(() => new Date(initial).getTime())
@@ -69,7 +76,7 @@ export function WindowChip({ closesAt, now }: { closesAt: string; now: string })
   )
 }
 
-export function HandledToggle({ contactId, waiting }: { contactId: string; waiting: boolean }) {
+export function HandledToggle({ contactId, waiting, channel = 'whatsapp' }: { contactId: string; waiting: boolean; channel?: InboxChannel }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   return (
@@ -78,7 +85,7 @@ export function HandledToggle({ contactId, waiting }: { contactId: string; waiti
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
-          await setWhatsappHandledAction(contactId, waiting)
+          await handledAction(channel)(contactId, waiting)
           router.refresh()
         })
       }
@@ -136,7 +143,7 @@ export function InfoDrawer({ title, children }: { title: string; children: React
   )
 }
 
-export function InboxKeys({ order, selectedId, hrefs, waiting }: { order: string[]; selectedId: string | null; hrefs: Record<string, string>; waiting: boolean }) {
+export function InboxKeys({ order, selectedId, hrefs, waiting, channel = 'whatsapp' }: { order: string[]; selectedId: string | null; hrefs: Record<string, string>; waiting: boolean; channel?: InboxChannel }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   useEffect(() => {
@@ -164,7 +171,7 @@ export function InboxKeys({ order, selectedId, hrefs, waiting }: { order: string
       if (key === 'e' && selectedId && waiting && !event.repeat) {
         event.preventDefault()
         startTransition(async () => {
-          await setWhatsappHandledAction(selectedId, true)
+          await handledAction(channel)(selectedId, true)
           router.refresh()
         })
         return
@@ -179,6 +186,6 @@ export function InboxKeys({ order, selectedId, hrefs, waiting }: { order: string
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [order, selectedId, hrefs, waiting, router])
+  }, [order, selectedId, hrefs, waiting, channel, router])
   return null
 }

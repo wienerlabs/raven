@@ -16,6 +16,7 @@ export interface EmailCopy {
   unsubscribe: string
   whatsappOptOut: string
   whatsappChat: string
+  telegramChat: string
   whatsappChatHint: string
 }
 
@@ -37,6 +38,7 @@ export const emailCopy: Record<Language, EmailCopy> = {
     unsubscribe: 'Bir daha yazmayalım',
     whatsappOptOut: 'Bu konuda tekrar yazmamı istemezseniz belirtmeniz yeterli.',
     whatsappChat: "WhatsApp'tan yazın",
+    telegramChat: "Telegram'dan yazın",
     whatsappChatHint: 'Yazışmayı tercih ederseniz:',
   },
   en: {
@@ -55,6 +57,7 @@ export const emailCopy: Record<Language, EmailCopy> = {
     unsubscribe: 'Do not email me again',
     whatsappOptOut: 'If you would rather not hear from me about this, just let me know.',
     whatsappChat: 'Message us on WhatsApp',
+    telegramChat: 'Message us on Telegram',
     whatsappChatHint: 'Prefer chatting?',
   },
 }

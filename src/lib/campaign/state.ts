@@ -1,6 +1,6 @@
 import { and, eq, inArray, or } from 'drizzle-orm'
 import type { Database } from '@/lib/db'
-import { contacts, events, messages, responses, suppressions, type Intent, type Stage } from '@/lib/db/schema'
+import { contacts, events, messages, responses, suppressions, type Intent, type ResponseChannel, type Stage } from '@/lib/db/schema'
 
 export const stageRank: Record<Stage, number> = {
   new: 0,
@@ -56,7 +56,7 @@ export async function isSuppressed(db: Database, values: Array<string | null | u
 
 export async function suppress(
   db: Database,
-  input: { contactId?: string | null; value: string; kind: 'email' | 'phone' | 'domain'; reason: 'unsubscribe' | 'bounce' | 'complaint' | 'manual' | 'stop' },
+  input: { contactId?: string | null; value: string; kind: 'email' | 'phone' | 'domain' | 'telegram'; reason: 'unsubscribe' | 'bounce' | 'complaint' | 'manual' | 'stop' },
 ): Promise<void> {
   await db.insert(suppressions).values({ value: input.value.toLowerCase(), kind: input.kind, reason: input.reason }).onConflictDoNothing()
   if (!input.contactId) return
@@ -77,7 +77,7 @@ export async function recordResponse(
   input: {
     contactId: string
     messageId?: string | null
-    channel: 'email' | 'whatsapp' | 'landing'
+    channel: ResponseChannel
     kind: 'intent' | 'form' | 'reply' | 'auto_reply'
     intent: Intent
     body?: string | null

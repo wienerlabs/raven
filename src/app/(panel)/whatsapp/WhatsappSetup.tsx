@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition, type ReactNode } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, Copy } from 'lucide-react'
 import { refreshWhatsappTemplates, saveWhatsappAction, sendWhatsappTest, submitWhatsappTemplates, testWhatsappConnection } from '@/app/actions/whatsapp'
 import type { SetupKey } from '@/lib/whatsapp/config'
 import { MotionButton } from '@/components/ui/MotionButton'
+import { Capability, CopyField, StepList, type SetupStep } from '@/components/setup/SetupParts'
 
 export interface SetupProps {
   businessNumberLabel: string | null
@@ -30,49 +30,6 @@ const statusLabels: Record<string, string> = { APPROVED: 'Onaylandı', PENDING: 
 function when(value: string | null): string {
   if (!value) return ''
   return new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Istanbul' }).format(new Date(value))
-}
-
-function CopyField({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <div>
-      <div className="label">{label}</div>
-      <div className="flex items-center gap-2 rounded-2xl border border-line bg-soft px-3 py-2 text-xs">
-        <span className="min-w-0 flex-1 break-all text-ink">{value || 'Kaydettiğinizde oluşur'}</span>
-        {value ? (
-          <button
-            type="button"
-            className="chip shrink-0"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(value)
-                setCopied(true)
-              } catch {
-                setCopied(false)
-              }
-            }}
-          >
-            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            {copied ? 'Kopyalandı' : 'Kopyala'}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function Capability({ on, label, detail }: { on: boolean; label: string; detail: string }) {
-  return (
-    <li className="flex items-start gap-3">
-      <span className={'mt-1.5 h-2 w-2 shrink-0 rounded-full ' + (on ? 'bg-accent-strong' : 'bg-line')} aria-hidden />
-      <span>
-        <span className="block text-sm text-ink">
-          {label} <span className="text-xs text-mute">{on ? 'açık' : 'kapalı'}</span>
-        </span>
-        <span className="block text-xs text-mute">{detail}</span>
-      </span>
-    </li>
-  )
 }
 
 export function WhatsappSetup(props: SetupProps) {
@@ -126,7 +83,7 @@ export function WhatsappSetup(props: SetupProps) {
       </p>
     ) : null
 
-  const steps: Array<{ key: SetupKey; title: string; summary: string; optional?: boolean; body: ReactNode }> = [
+  const steps: Array<SetupStep<SetupKey>> = [
     {
       key: 'number',
       title: 'İş numarası',
@@ -286,28 +243,7 @@ export function WhatsappSetup(props: SetupProps) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
-      <ol className="space-y-3">
-        {steps.map((step, index) => {
-          const open = openKey === step.key
-          const complete = done[step.key]
-          return (
-            <li key={step.key} className={'rounded-3xl border bg-surface transition ' + (open ? 'border-accent-strong' : 'border-line')}>
-              <button type="button" onClick={() => setOpenKey(open ? null : step.key)} aria-expanded={open} className="flex w-full items-center gap-4 px-5 py-4 text-left">
-                <span className={'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs ' + (complete ? 'border-accent bg-accent text-on-accent' : 'border-line bg-canvas text-mute')}>
-                  {complete ? <Check className="h-3.5 w-3.5" /> : index + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm text-ink">{step.title}</span>
-                  <span className="block truncate text-xs text-mute">{step.summary}</span>
-                </span>
-                {step.optional ? <span className="pill hidden sm:inline-flex">İsteğe bağlı</span> : null}
-                <ChevronDown className={'h-4 w-4 shrink-0 text-mute transition ' + (open ? 'rotate-180' : '')} />
-              </button>
-              {open ? <div className="border-t border-line px-5 pb-5 pt-4">{step.body}</div> : null}
-            </li>
-          )
-        })}
-      </ol>
+      <StepList steps={steps} done={done} openKey={openKey} onToggle={(key) => setOpenKey(openKey === key ? null : key)} />
       <aside className="space-y-4">
         <div className="card">
           <h2 className="text-sm text-ink">Şu an çalışanlar</h2>

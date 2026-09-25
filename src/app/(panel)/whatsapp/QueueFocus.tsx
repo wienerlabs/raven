@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, Check, Copy, ExternalLink, LayoutList, Target, X } from 'lucide-react'
 import { cancelWhatsapp, markWhatsappSent } from '@/app/actions/data'
 import { MotionButton } from '@/components/ui/MotionButton'
-import { Avatar } from '@/components/whatsapp/inbox/ThreadList'
+import { Avatar } from '@/components/inbox/ThreadList'
 
 export interface QueueItem {
   id: string

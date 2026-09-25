@@ -11,7 +11,7 @@ export default async function PanelLayout({ children }: LayoutProps<'/'>) {
   return (
     <>
       <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      <Shell inboxCount={counts.inbox} whatsappCount={counts.whatsapp} tagline="Kişiye özel AI çözümleri, herkese kendi dilinden" viewer={session.name}>
+      <Shell inboxCount={counts.inbox} whatsappCount={counts.whatsapp} telegramCount={counts.telegram} tagline="Kişiye özel AI çözümleri, herkese kendi dilinden" viewer={session.name}>
         {children}
       </Shell>
     </>

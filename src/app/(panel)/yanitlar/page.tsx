@@ -15,7 +15,7 @@ import { EmailDraft } from './EmailDraft'
 export const metadata: Metadata = { title: 'Yanıtlar' }
 export const maxDuration = 60
 
-const channelLabels = { email: 'E-posta yanıtı', whatsapp: 'WhatsApp', landing: 'Taslak sayfası' } as const
+const channelLabels = { email: 'E-posta yanıtı', whatsapp: 'WhatsApp', telegram: 'Telegram', landing: 'Taslak sayfası' } as const
 const kindLabels = { intent: 'Tek tık', form: 'Not', reply: 'Yanıt', auto_reply: 'Otomatik yanıt' } as const
 
 export default async function ResponsesPage({ searchParams }: PageProps<'/yanitlar'>) {
@@ -34,7 +34,7 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl tracking-tight text-ink">Yanıtlar</h1>
-        <p className="mt-1 max-w-2xl text-sm text-mute">Tek tıkla verilen yanıtlar, taslak sayfasından bırakılan notlar, e-posta ve WhatsApp yanıtları tek yerde. Yanıt veren kişiye otomatik takip gönderilmez.</p>
+        <p className="mt-1 max-w-2xl text-sm text-mute">Tek tıkla verilen yanıtlar, taslak sayfasından bırakılan notlar, e-posta, WhatsApp ve Telegram yanıtları tek yerde. Yanıt veren kişiye otomatik takip gönderilmez.</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => (
@@ -57,8 +57,10 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
           {rows.map(({ response, contact, solution, greeting }) => {
             const mailto = mailtoHref(contact.email, { subject: `${solution ?? 'Wiener Labs'} hakkında` })
             const isWhatsapp = response.channel === 'whatsapp'
+            const isTelegram = response.channel === 'telegram'
+            const isChat = isWhatsapp || isTelegram
             const unverified = isWhatsapp && Boolean(response.fromAddress) && response.fromAddress !== contact.phone
-            const whatsapp = !isWhatsapp && contact.phone ? waMeLink(contact.phone, `Merhaba ${greeting ?? contact.firstName}, `) : null
+            const whatsapp = !isChat && contact.phone ? waMeLink(contact.phone, `Merhaba ${greeting ?? contact.firstName}, `) : null
             return (
               <li key={response.id} className={`card ${response.handled ? 'opacity-70' : ''}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -89,7 +91,12 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
                       WhatsApp sohbetini aç
                     </Link>
                   ) : null}
-                  {!isWhatsapp && mailto ? (
+                  {isTelegram ? (
+                    <Link href={`/telegram?kisi=${contact.id}`} className="btn btn-sm">
+                      Telegram sohbetini aç
+                    </Link>
+                  ) : null}
+                  {!isChat && mailto ? (
                     <a href={mailto} className="btn btn-sm">
                       E-posta ile yanıtla
                     </a>
@@ -100,7 +107,7 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
                     </a>
                   ) : null}
                   <HandledButton id={response.id} handled={response.handled} />
-                  {ai && !isWhatsapp && contact.email && response.kind !== 'auto_reply' ? <EmailDraft responseId={response.id} email={contact.email} /> : null}
+                  {ai && !isChat && contact.email && response.kind !== 'auto_reply' ? <EmailDraft responseId={response.id} email={contact.email} /> : null}
                 </div>
               </li>
             )

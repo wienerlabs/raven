@@ -4,6 +4,7 @@ import { contacts, pitches, responses } from '@/lib/db/schema'
 import { baseUrl } from '@/lib/env'
 import { getSettings } from '@/lib/settings'
 import { whatsappThread } from '@/lib/whatsapp/inbox'
+import { telegramThread } from '@/lib/telegram/inbox'
 import { intentLabels } from '@/lib/labels'
 import type { ReplyChannel, ReplyContext, ReplyTurn } from './reply'
 
@@ -19,6 +20,11 @@ export async function replyContextFor(db: Database, contactId: string, channel: 
   if (channel === 'whatsapp') {
     const thread = await whatsappThread(db, contactId, base)
     for (const message of thread?.messages ?? []) conversation.push({ direction: message.direction, text: message.text, at: message.at })
+  } else if (channel === 'telegram') {
+    const thread = await telegramThread(db, contactId)
+    for (const message of thread?.messages ?? []) {
+      if (message.kind !== 'start') conversation.push({ direction: message.direction, text: message.text, at: message.at })
+    }
   } else {
     if (pitch) conversation.push({ direction: 'out', text: `${pitch.email.subject}. ${pitch.email.opening} ${pitch.email.body}`, at: contact.createdAt })
     const rows = await db

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type KeyboardEvent
 import { useRouter } from 'next/navigation'
 import { AlertCircle, Check, ExternalLink, MessageSquareText, Send, Sparkles, Undo2 } from 'lucide-react'
 import { draftWhatsappReplyAction, markManualReplyAction, replyWhatsappAction } from '@/app/actions/whatsapp'
+import { draftTelegramReplyAction, replyTelegramAction } from '@/app/actions/telegram'
 import { MotionButton } from '@/components/ui/MotionButton'
 import { useNow } from './ThreadParts'
 
@@ -85,21 +86,23 @@ function SnippetMenu({ snippets, onPick, onClose }: { snippets: SnippetOption[];
 export function Composer({
   contactId,
   channel,
-  waDigits,
-  closesAt,
+  waDigits = null,
+  closesAt = null,
   now,
   firstName,
   snippets,
   ai,
+  blockedReason = null,
 }: {
   contactId: string
-  channel: 'api' | 'app'
-  waDigits: string | null
-  closesAt: string | null
+  channel: 'api' | 'app' | 'telegram'
+  waDigits?: string | null
+  closesAt?: string | null
   now: string
   firstName: string
   snippets: SnippetOption[]
   ai: boolean
+  blockedReason?: string | null
 }) {
   const router = useRouter()
   const current = useNow(now)
@@ -114,8 +117,9 @@ export function Composer({
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null)
   const [mac, setMac] = useState(true)
   const [pending, startTransition] = useTransition()
-  const storageKey = `raven.wa.draft.${contactId}`
-  const windowOpen = channel === 'app' || (closesAt ? new Date(closesAt).getTime() > current : false)
+  const direct = channel !== 'app'
+  const storageKey = `raven.${channel === 'telegram' ? 'tg' : 'wa'}.draft.${contactId}`
+  const windowOpen = channel !== 'api' || (closesAt ? new Date(closesAt).getTime() > current : false)
   const ready = text.trim().length >= 2 && text.length <= LIMIT
   const waLink = waDigits ? `https://wa.me/${waDigits}${text.trim() ? `?text=${encodeURIComponent(text.trim())}` : ''}` : null
 
@@ -180,7 +184,7 @@ export function Composer({
   const send = () => {
     if (!ready || pending) return
     startTransition(async () => {
-      const result = await replyWhatsappAction(contactId, text)
+      const result = channel === 'telegram' ? await replyTelegramAction(contactId, text) : await replyWhatsappAction(contactId, text)
       if (result.ok) reset(result.message)
       else setNotice({ ok: false, text: result.message })
     })
@@ -206,7 +210,7 @@ export function Composer({
     setDrafting(true)
     setNotice(null)
     try {
-      const result = await draftWhatsappReplyAction(contactId)
+      const result = channel === 'telegram' ? await draftTelegramReplyAction(contactId) : await draftWhatsappReplyAction(contactId)
       if (result.ok) {
         setUndo(text)
         setText(result.text)
@@ -238,7 +242,7 @@ export function Composer({
   const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault()
-      if (channel === 'api') send()
+      if (direct) send()
       else if (opened) markSent()
       else openApp()
       return
@@ -249,6 +253,14 @@ export function Composer({
       return
     }
     if (event.key === 'Escape') event.currentTarget.blur()
+  }
+
+  if (blockedReason) {
+    return (
+      <div className="border-t border-line p-3">
+        <p className="rounded-2xl border border-dashed border-line px-4 py-3 text-xs leading-5 text-mute">{blockedReason}</p>
+      </div>
+    )
   }
 
   if (!windowOpen) {
@@ -262,7 +274,7 @@ export function Composer({
   }
 
   const shortcut = mac ? '⌘ Enter' : 'Ctrl Enter'
-  const hint = channel === 'api' ? `${shortcut} ile gönderin` : opened ? `${shortcut} ile kaydedin` : `${shortcut} ile WhatsApp'ta açın`
+  const hint = direct ? `${shortcut} ile gönderin` : opened ? `${shortcut} ile kaydedin` : `${shortcut} ile WhatsApp'ta açın`
 
   return (
     <div className="border-t border-line p-3">
@@ -279,7 +291,7 @@ export function Composer({
             if (opened) setOpened(false)
           }}
           onKeyDown={onKeyDown}
-          placeholder={channel === 'api' ? `${firstName} için yanıtınız. Hazır yanıtlar için / yazın.` : `${firstName} için yanıtınız. Metin WhatsApp'ta hazır açılır.`}
+          placeholder={direct ? `${firstName} için yanıtınız. Hazır yanıtlar için / yazın.` : `${firstName} için yanıtınız. Metin WhatsApp'ta hazır açılır.`}
           aria-label="Yanıt metni"
           className="block max-h-32 min-h-[3.25rem] w-full resize-none bg-transparent px-4 pt-3 text-sm leading-6 text-ink outline-none placeholder:text-mute @lg:max-h-52"
         />
@@ -307,7 +319,7 @@ export function Composer({
             </button>
           ) : null}
           <span className="ml-auto hidden px-1 text-[11px] text-mute @xl:inline">{text.length > LIMIT - 600 ? `${text.length}/${LIMIT}` : hint}</span>
-          {channel === 'api' ? (
+          {direct ? (
             <MotionButton small disabled={!ready || pending} onClick={send} className="ml-auto @xl:ml-0">
               <Send className="h-3.5 w-3.5" /> {pending ? 'Gönderiliyor' : 'Gönder'}
             </MotionButton>

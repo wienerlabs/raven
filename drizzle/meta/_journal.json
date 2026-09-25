@@ -29,6 +29,13 @@
       "when": 1790230215008,
       "tag": "0003_whatsapp_dedupe",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790353940019,
+      "tag": "0004_telegram",
+      "breakpoints": true
     }
   ]
 }

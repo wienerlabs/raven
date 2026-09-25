@@ -17,6 +17,7 @@ export interface ThreadItem {
   previewOut: boolean
   timeLabel: string
   closingSoon: boolean
+  note?: string | null
 }
 
 export function Avatar({ name, size = 'md', flagged = false }: { name: string; size?: 'md' | 'lg'; flagged?: boolean }) {
@@ -32,7 +33,23 @@ export function Avatar({ name, size = 'md', flagged = false }: { name: string; s
   )
 }
 
-export function ThreadList({ threads, selectedId, filter, counts }: { threads: ThreadItem[]; selectedId: string | null; filter: FilterKey; counts: Record<FilterKey, number> }) {
+export function ThreadList({
+  threads,
+  selectedId,
+  filter,
+  counts,
+  base = '/whatsapp',
+  filters = ['all', 'waiting', 'unverified'],
+  placeholder = 'İsim, şirket ya da numara',
+}: {
+  threads: ThreadItem[]
+  selectedId: string | null
+  filter: FilterKey
+  counts: Partial<Record<FilterKey, number>>
+  base?: string
+  filters?: FilterKey[]
+  placeholder?: string
+}) {
   const [query, setQuery] = useState('')
   const visible = useMemo(() => (query.trim() ? threads.filter((thread) => threadMatches(thread, query)) : threads), [threads, query])
 
@@ -44,7 +61,7 @@ export function ThreadList({ threads, selectedId, filter, counts }: { threads: T
           <input
             id="wa-search"
             className="min-w-0 flex-1 bg-transparent text-ink outline-none placeholder:text-mute"
-            placeholder="İsim, şirket ya da numara"
+            placeholder={placeholder}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
@@ -62,10 +79,12 @@ export function ThreadList({ threads, selectedId, filter, counts }: { threads: T
           ) : null}
         </label>
         <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Sohbet filtresi">
-          {inboxFilters.map((item) => (
-            <Link key={item.key} href={inboxHref(item.key, selectedId)} role="tab" aria-selected={filter === item.key} className={`chip shrink-0 ${filter === item.key ? 'chip-active' : ''}`} scroll={false}>
+          {inboxFilters
+            .filter((item) => filters.includes(item.key))
+            .map((item) => (
+            <Link key={item.key} href={inboxHref(item.key, selectedId, base)} role="tab" aria-selected={filter === item.key} className={`chip shrink-0 ${filter === item.key ? 'chip-active' : ''}`} scroll={false}>
               {item.label}
-              <span className={filter === item.key ? 'text-on-accent' : 'text-ink'}>{counts[item.key]}</span>
+              <span className={filter === item.key ? 'text-on-accent' : 'text-ink'}>{counts[item.key] ?? 0}</span>
             </Link>
           ))}
         </div>
@@ -79,7 +98,7 @@ export function ThreadList({ threads, selectedId, filter, counts }: { threads: T
           return (
             <li key={thread.contactId}>
               <Link
-                href={inboxHref(filter, thread.contactId)}
+                href={inboxHref(filter, thread.contactId, base)}
                 scroll={false}
                 aria-current={active ? 'true' : undefined}
                 className={'flex items-start gap-3 rounded-2xl px-3 py-3 transition ' + (active ? 'bg-accent-soft' : 'hover:bg-soft')}
@@ -90,7 +109,10 @@ export function ThreadList({ threads, selectedId, filter, counts }: { threads: T
                     <span className={'truncate text-sm ' + (thread.unhandled ? 'text-ink' : 'text-body')}>{thread.name}</span>
                     <span className={'shrink-0 text-[11px] ' + (thread.unhandled ? 'text-ink' : 'text-mute')}>{thread.timeLabel}</span>
                   </span>
-                  <span className="block truncate text-xs text-mute">{thread.company}</span>
+                  <span className="flex items-center gap-1.5 text-xs text-mute">
+                    <span className="truncate">{thread.company}</span>
+                    {thread.note ? <span className="shrink-0 rounded-full border border-line px-1.5 text-[10px] text-mute">{thread.note}</span> : null}
+                  </span>
                   <span className="mt-1 flex items-center gap-2">
                     <span className={'min-w-0 flex-1 truncate text-xs ' + (thread.unhandled ? 'text-body' : 'text-mute')}>
                       {thread.previewOut ? <span className="text-mute">Siz: </span> : null}

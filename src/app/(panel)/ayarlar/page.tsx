@@ -6,6 +6,7 @@ import { emailProviderLabel } from '@/lib/channels/email'
 import { saveSettingsAction } from '@/app/actions/settings'
 import { accessOverview } from '@/lib/auth/passkeys'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { resolveTelegram } from '@/lib/telegram/config'
 import { getAuthPolicy } from '@/lib/auth/policy'
 import { getBrand } from '@/lib/brand/logo'
 import { defaultSnippets, getSnippets } from '@/lib/whatsapp/snippets'
@@ -30,7 +31,7 @@ function Line({ label, value, ok }: { label: string; value: string; ok?: boolean
 export default async function SettingsPage() {
   const session = await requireAdmin()
   const db = await getDb()
-  const [settings, access, whatsapp, policy, brand, snippets] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db), getAuthPolicy(db), getBrand(db), getSnippets(db)])
+  const [settings, access, whatsapp, telegram, policy, brand, snippets] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db), resolveTelegram(db), getAuthPolicy(db), getBrand(db), getSnippets(db)])
   const viewerMemberId = isMemberSession(session) ? session.sub : null
   const viewerHasPasskey = Boolean(viewerMemberId && access.members.some((member) => member.id === viewerMemberId && member.passkeys.length > 0))
   const env = environmentSummary()
@@ -70,8 +71,10 @@ export default async function SettingsPage() {
             <Line label="Zamanlayıcı (CRON_SECRET)" value={env.cronSecret ? 'Tanımlı' : 'Tanımlı değil'} ok={env.cronSecret} />
             <Line label="AI üretimi" value={env.ai ? `Açık (${env.aiModel})` : 'ANTHROPIC_API_KEY yok'} ok={env.ai} />
             <Line label="WhatsApp" value={whatsapp.mode === 'cloud' ? 'Otomatik gönderim (Cloud API)' : whatsapp.businessNumber ? 'Tıkla-yaz açık, gönderim elle' : 'Elle gönderim'} ok={whatsapp.mode === 'cloud' || Boolean(whatsapp.businessNumber)} />
+            <Line label="Telegram" value={telegram.ready && telegram.username ? `@${telegram.username}${telegram.webhookError ? ', webhook hatalı' : ''}` : telegram.token ? 'Bot kayıtlı, webhook kurulmadı' : 'Kapalı'} ok={telegram.ready && !telegram.webhookError} />
             <Line label="Ekip bildirim e-postası" value={env.notify === 'resend' ? `Resend (${env.notifyFrom})` : env.notify === 'campaign' ? 'Kampanya kutusundan' : 'Kapalı'} ok={env.notify !== 'none'} />
             <Line label="Slack bildirimi" value={env.slack ? 'Açık' : 'Kapalı'} ok={env.slack} />
+            <Line label="Telegram bildirimi" value={telegram.team ? telegram.team.title || 'Açık' : 'Kapalı'} ok={Boolean(telegram.team)} />
           </div>
           {env.sendersError ? <p className="mt-3 text-xs text-ink">RAVEN_SENDERS okunamadı: {env.sendersError}</p> : null}
         </div>

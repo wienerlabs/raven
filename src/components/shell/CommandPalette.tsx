@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Command } from 'cmdk'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, CalendarCheck, FileUp, Inbox, LayoutDashboard, ListChecks, MessageCircle, MessageSquareText, Moon, Search, Send, Settings, ShieldAlert, Target, User, Users } from 'lucide-react'
+import { ArrowRight, CalendarCheck, FileUp, Inbox, LayoutDashboard, ListChecks, MessageCircle, MessageSquareText, Moon, Search, Send, SendHorizontal, Settings, ShieldAlert, Target, User, Users } from 'lucide-react'
 import { searchContactsAction } from '@/app/actions/search'
 import type { ContactHit } from '@/lib/search'
 import { stageLabels } from '@/lib/labels'
@@ -28,6 +28,8 @@ const pages: Entry[] = [
   { id: 'whatsapp', label: 'WhatsApp sohbetleri', href: '/whatsapp', icon: MessageCircle },
   { id: 'kuyruk', label: 'WhatsApp kuyruğu', hint: 'Odak modu', href: '/whatsapp?sekme=kuyruk', icon: Target },
   { id: 'kurulum', label: 'WhatsApp kurulumu', href: '/whatsapp?sekme=kurulum', icon: Settings, words: 'meta cloud api webhook şablon' },
+  { id: 'telegram', label: 'Telegram sohbetleri', href: '/telegram', icon: SendHorizontal },
+  { id: 'telegram-kurulum', label: 'Telegram kurulumu', hint: 'Bot ve bildirimler', href: '/telegram?sekme=kurulum', icon: Settings, words: 'botfather bot webhook bildirim grup' },
   { id: 'ice-aktar', label: 'İçe aktar', hint: 'Excel ve içerik dosyası', href: '/ice-aktar', icon: FileUp },
   { id: 'ayarlar', label: 'Ayarlar', href: '/ayarlar', icon: Settings },
   { id: 'hazir', label: 'Hazır yanıtlar', hint: 'Ayarlar', href: '/ayarlar#hazir-yanitlar', icon: MessageSquareText, words: 'şablon snippet' },
@@ -36,6 +38,7 @@ const pages: Entry[] = [
 const shortcuts: Entry[] = [
   { id: 'bekleyen', label: 'Yanıt bekleyen WhatsApp sohbetleri', href: '/whatsapp?filtre=bekleyen', icon: MessageCircle },
   { id: 'dogrulanmamis', label: 'Doğrulanmamış WhatsApp numaraları', href: '/whatsapp?filtre=dogrulanmamis', icon: ShieldAlert },
+  { id: 'telegram-bekleyen', label: 'Yanıt bekleyen Telegram sohbetleri', href: '/telegram?filtre=bekleyen', icon: SendHorizontal },
   { id: 'gorusme', label: 'Görüşme isteyenler', href: '/yanitlar?intent=meeting', icon: CalendarCheck },
   { id: 'onay', label: 'Onay bekleyen içerikler', href: '/kisiler?review=pending', icon: ListChecks },
   { id: 'inceleme', label: 'Hukuki incelemedeki kişiler', href: '/kisiler?review=hold', icon: ShieldAlert },

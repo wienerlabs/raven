@@ -21,6 +21,8 @@ import { PreviewTabs } from './PreviewTabs'
 import { TestSendForm } from './TestSendForm'
 import { getBrand } from '@/lib/brand/logo'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
+import { resolveTelegram } from '@/lib/telegram/config'
+import { contactTelegram } from '@/lib/telegram/inbox'
 
 export const metadata: Metadata = { title: 'Kişi' }
 
@@ -30,7 +32,7 @@ export default async function ContactPage({ params }: PageProps<'/kisiler/[id]'>
   const detail = await contactDetail(db, id)
   if (!detail) notFound()
   const { contact, pitch } = detail
-  const [settings, brand, whatsapp] = await Promise.all([getSettings(db), getBrand(db), resolveWhatsapp(db)])
+  const [settings, brand, whatsapp, telegram, telegramChat] = await Promise.all([getSettings(db), getBrand(db), resolveWhatsapp(db), resolveTelegram(db), contactTelegram(db, contact.id)])
   const base = baseUrl()
   const sender = activeSenders()[0]
   const replyTo = sender?.replyTo ?? sender?.email ?? 'raven@localhost.test'
@@ -40,7 +42,7 @@ export default async function ContactPage({ params }: PageProps<'/kisiler/[id]'>
   const previews = content
     ? [0, 1, 2].map((step) =>
         renderEmail(
-          { pitch: content, contact: { slug: contact.slug, company: contact.company }, message: { token: previewToken, step, variant: 'a' }, settings, baseUrl: base, replyTo, firstSubject: content.email.subject, brand, whatsappNumber: whatsapp.businessNumber },
+          { pitch: content, contact: { slug: contact.slug, company: contact.company }, message: { token: previewToken, step, variant: 'a' }, settings, baseUrl: base, replyTo, firstSubject: content.email.subject, brand, whatsappNumber: whatsapp.businessNumber, telegramBot: telegram.ready ? telegram.username : null },
           false,
         ),
       )
@@ -76,6 +78,12 @@ export default async function ContactPage({ params }: PageProps<'/kisiler/[id]'>
             <StageBadge stage={contact.stage} />
             {contact.relationship === 'customer' ? <span className="rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs text-ink">Mevcut müşteri</span> : null}
             <span className="pill">{content?.language === 'en' ? 'İngilizce' : 'Türkçe'}</span>
+            {telegramChat ? (
+              <Link href={`/telegram?kisi=${contact.id}`} className="pill transition hover:border-accent-strong">
+                Telegram {telegramChat.handle}
+                {telegramChat.blocked ? ', engelledi' : telegramChat.stopped ? ', DUR yazdı' : ''}
+              </Link>
+            ) : null}
           </div>
           <h1 className="mt-3 text-3xl tracking-tight text-ink sm:text-4xl">
             {displayFirst} {displayLast}

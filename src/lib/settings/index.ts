@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Database } from '@/lib/db'
 import { settings } from '@/lib/db/schema'
@@ -70,6 +70,14 @@ export async function saveSettings(db: Database, next: AppSettings): Promise<App
 export async function getState<T>(db: Database, key: string): Promise<T | null> {
   const rows = await db.select().from(settings).where(eq(settings.key, key)).limit(1)
   return (rows[0]?.value as T | undefined) ?? null
+}
+
+export async function patchState<T extends object>(db: Database, key: string, patch: T): Promise<void> {
+  const json = patch as unknown as Record<string, unknown>
+  await db
+    .insert(settings)
+    .values({ key, value: json })
+    .onConflictDoUpdate({ target: settings.key, set: { value: sql`${settings.value} || excluded.value`, updatedAt: new Date() } })
 }
 
 export async function setState<T extends object>(db: Database, key: string, value: T): Promise<void> {

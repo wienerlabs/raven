@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     for (const notice of summary.notices) {
       const subject = notice.verified ? `${notice.name} WhatsApp'tan yazdı` : `${notice.name} için WhatsApp mesajı (doğrulanmamış numara)`
       const origin = notice.verified ? notice.company : `${notice.company} · ${notice.from} numarası kişinin kaydında yok, panelden kontrol edin`
-      await notifyTeam(settings, subject, [origin, '', notice.text.slice(0, 800)])
+      await notifyTeam(db, settings, subject, [origin, '', notice.text.slice(0, 800)])
     }
   }
   return Response.json({ ok: true })

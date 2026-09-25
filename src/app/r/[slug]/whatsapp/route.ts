@@ -4,8 +4,7 @@ import { contactBySlug } from '@/lib/public'
 import { findMessageByToken, recordEvent } from '@/lib/campaign/state'
 import { clickToChatText, waMeLink } from '@/lib/channels/whatsapp'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
-
-const botPattern = /(bot|crawler|spider|preview|scanner|safelinks|proofpoint|mimecast|barracuda|headless|python-requests|curl|wget|facebookexternalhit|slackbot)/i
+import { isAutomatedAgent } from '@/lib/security/agents'
 
 export async function GET(request: Request, { params }: RouteContext<'/r/[slug]/whatsapp'>) {
   const { slug } = await params
@@ -18,8 +17,7 @@ export async function GET(request: Request, { params }: RouteContext<'/r/[slug]/
   if (!found || !config.businessNumber) return Response.redirect(landing, 302)
   const { contact, pitch } = found
   const message = token ? await findMessageByToken(db, token) : null
-  const agent = request.headers.get('user-agent') ?? ''
-  if (!message?.isTest && !botPattern.test(agent)) {
+  if (!message?.isTest && !isAutomatedAgent(request.headers.get('user-agent'))) {
     await recordEvent(db, { contactId: contact.id, messageId: message && message.contactId === contact.id ? message.id : null, type: 'wa_click', data: { source: url.searchParams.get('s') === 'email' ? 'email' : 'page' } })
   }
   const text = clickToChatText({ language: pitch.language, company: pitch.company.name, solution: pitch.solution.name, slug: contact.slug })

@@ -10,7 +10,11 @@ export async function navCounts(db: Database) {
     .select({ value: countDistinct(responses.contactId) })
     .from(responses)
     .where(and(eq(responses.channel, 'whatsapp'), eq(responses.kind, 'reply'), eq(responses.handled, false)))
-  return { inbox: inbox?.value ?? 0, whatsapp: (whatsapp?.value ?? 0) + (conversations?.value ?? 0) }
+  const [telegram] = await db
+    .select({ value: countDistinct(responses.contactId) })
+    .from(responses)
+    .where(and(eq(responses.channel, 'telegram'), eq(responses.kind, 'reply'), eq(responses.handled, false)))
+  return { inbox: inbox?.value ?? 0, whatsapp: (whatsapp?.value ?? 0) + (conversations?.value ?? 0), telegram: telegram?.value ?? 0 }
 }
 
 export async function overviewStats(db: Database) {
@@ -346,4 +350,9 @@ export async function sectorPerformance(db: Database, limit = 6) {
       .sort((left, right) => (anySent ? right.contacted - left.contacted || right.responded - left.responded : right.people - left.people))
       .slice(0, limit),
   }
+}
+
+export async function sampleSlug(db: Database): Promise<string | null> {
+  const [row] = await db.select({ slug: contacts.slug }).from(contacts).innerJoin(pitches, eq(pitches.contactId, contacts.id)).orderBy(asc(contacts.createdAt)).limit(1)
+  return row?.slug ?? null
 }

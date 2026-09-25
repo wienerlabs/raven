@@ -77,11 +77,11 @@ export function filterFromParam(value: unknown): FilterKey {
   return inboxFilters.find((item) => item.param !== null && item.param === value)?.key ?? 'all'
 }
 
-export function inboxHref(filter: FilterKey, contactId?: string | null): string {
+export function inboxHref(filter: FilterKey, contactId?: string | null, base = '/whatsapp'): string {
   const params = new URLSearchParams()
   const param = inboxFilters.find((item) => item.key === filter)?.param
   if (param) params.set('filtre', param)
   if (contactId) params.set('kisi', contactId)
   const query = params.toString()
-  return query ? `/whatsapp?${query}` : '/whatsapp'
+  return query ? `${base}?${query}` : base
 }

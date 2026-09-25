@@ -14,6 +14,7 @@
   <a href="https://github.com/wienerlabs/raven/issues/17">Roadmap</a> ·
   <a href="#local-setup">Local setup</a> ·
   <a href="#whatsapp-setup">WhatsApp</a> ·
+  <a href="#telegram-setup">Telegram</a> ·
   <a href="#face-id-sign-in">Face ID</a> ·
   <a href="#credits-and-license">License</a>
 </p>
@@ -41,8 +42,9 @@ The product UI is Turkish. The visual language follows the Paralyx design system
 - **Launch once.** Raven spreads the sends across business hours with random gaps, per sender daily limits and sender rotation. Follow ups thread under the first email and stop as soon as the person replies, clicks a reply button, unsubscribes or bounces. A bounce guard pauses the campaign if the bounce rate climbs.
 - **Get answers.** Each email carries one click reply buttons (meeting, send details, not now), a personal brief with a note form and calendar link, and IMAP sync that detects replies, auto replies and bounces in the sender mailbox. Every response lands in the inbox page and can notify the team by email or Slack.
 - **WhatsApp both ways.** With a business number set, every email and personal brief offers "WhatsApp'tan yazın". The prefilled message carries a reference code, so a message from a new number shows up under the right contact as an unverified sender until someone on the team links the number; a reference code can never overwrite or impersonate a known number. Contacts without email get click to chat links with the personal text prefilled, or an approved Cloud API template when they opted in. Inside the 24 hour service window the team replies from the panel to the number that actually wrote.
+- **Telegram too.** Once a bot is connected, every personal brief and email also offers "Telegram'dan yazın". The button opens the bot with the contact's own start code, so the chat is matched to the right person the moment they press Start, they get a short greeting in their language, and follow ups stop because the conversation has begun. Telegram has no 24 hour window: the team can write any time until the contact sends `DUR` or `STOP`. Telegram conversations get the same three pane inbox, saved replies, AI drafts and keyboard shortcuts, and team notifications can go to a private chat or a team group.
 - **One WhatsApp inbox.** Conversations open in a three pane inbox: a searchable thread list with waiting and unverified filters, the conversation with day separators and a live 24 hour window countdown, and the contact context (solution, links, notes). Replies go out through the Cloud API, or open in your own WhatsApp with the text prefilled and are logged back with one click. Saved replies fill in the name, company, solution, brief link and calendar link, and an AI draft grounded only in the contact's solution and the conversation is always reviewed before it goes anywhere. J and K move between chats, R replies, E marks a chat handled and / opens saved replies. The manual send queue has a focus mode that serves one message at a time (O opens, G marks sent, S skips).
-- **Know what to do today.** The dashboard lists what needs attention right now: meeting requests, WhatsApp windows about to close, unread replies, unverified numbers, manual sends, pending reviews and legal holds, each one click away. Email replies get an AI draft that opens in your mail app, and ⌘K (Ctrl K) searches contacts and jumps anywhere in the panel.
+- **Know what to do today.** The dashboard lists what needs attention right now: meeting requests, WhatsApp windows about to close, Telegram chats waiting for an answer, unread replies, unverified numbers, manual sends, pending reviews and legal holds, each one click away. Email replies get an AI draft that opens in your mail app, and ⌘K (Ctrl K) searches contacts and jumps anywhere in the panel.
 - **See the response curve.** The dashboard charts cumulative replies, daily replies or the reply rate over 14, 30 or 90 days against daily sends, marks meeting requests, breaks replies down by intent and shows reply rates per sector. It refreshes itself every minute.
 - **Sign in with Face ID.** Team members add a passkey from Settings or through a one time invite link and then sign in with Face ID, Touch ID or Windows Hello. Faces never leave the device; Raven only verifies the signature. Once everyone is set up, the admin password can be switched off so only invited people get in.
 - **Brand everywhere.** Upload the email logo in Settings and it appears on every email, personal page and link preview. Links to the panel and invites unfurl with the Raven card, personal briefs with the Wiener Labs card.
@@ -75,6 +77,7 @@ Next.js 16 (App Router, server actions, proxy), React 19, Tailwind CSS 4, Drizzl
 contacts, settings -> research (website, MX) -> Claude -> validator -> pitch
 approved pitches -> launch -> slot planner -> messages (scheduled)
 cron, worker or panel -> dispatcher (SKIP LOCKED) -> SMTP, Resend or WhatsApp
+Telegram bot webhook -> chat matched by start code -> responses, inbox, team notifications
 recipient -> landing page, reply buttons, unsubscribe -> events, responses, suppressions
 sender inbox -> IMAP sync -> replies, auto replies, bounces
 ```
@@ -122,6 +125,16 @@ Everything is configured in the Kurulum tab of the WhatsApp page, which walks th
 
 Inbound messages are classified like email replies. A message from an unknown number that quotes a reference code is shown as an unverified sender and does not change the contact until the team links the number. `DUR` or `STOP` suppresses the number that wrote, and a unique index makes sure each Meta delivery is processed only once.
 
+## Telegram setup
+
+A Telegram bot can never send the first message, so Telegram is an opt in channel: the contact starts the chat from the "Telegram'dan yazın" button on their personal brief or email, and from then on the team can write from the panel. Everything is configured in the Kurulum tab of the Telegram page.
+
+1. **Bot.** Open [@BotFather](https://t.me/BotFather), send `/newbot`, pick a display name and a username ending in `bot`, and paste the token BotFather returns. Raven checks it with `getMe`, stores it encrypted (AES-256-GCM, key derived from `RAVEN_SESSION_SECRET`), sets the bot description and the `/start` and `/dur` commands in Turkish and English, and registers the webhook.
+2. **Incoming messages.** The webhook is `/api/webhooks/telegram` and only accepts deliveries that carry the random secret Raven registered with Telegram (`X-Telegram-Bot-Api-Secret-Token`). "Durumu kontrol et" compares Telegram's view of the webhook with this deployment and surfaces delivery errors; "Kendinizde deneyin" opens the bot in preview mode so you see the greeting without linking a chat.
+3. **Team notifications (optional).** "Bağlantı oluştur" issues a single use link that is valid for 15 minutes. Open it in your own chat or add the bot to a team group; from then on replies, notes and WhatsApp or Telegram messages are also posted there.
+
+The start link carries the contact's brief code (`/start r-<code>`), so a chat is matched without asking for a phone number. Strangers who write to the bot get one polite pointer to their brief at most every six hours and are never linked. `DUR` or `STOP` (or `/dur`) confirms, suppresses the contact and stops pending follow ups; a later message from the contact reopens the chat. Blocking the bot is detected, the composer is disabled and the chat is marked. A unique index makes sure every Telegram delivery is processed only once.
+
 ## Face ID sign in
 
 Passkeys use WebAuthn with the relying party set to the host of `RAVEN_BASE_URL`, so they only work on the production domain (and on `localhost` during development). Face ID alone does not open the panel: only devices that were added from Settings by a signed in admin, or through a one time invite link created for a named person, are accepted. Challenges are single use and expire after five minutes, invites are single use and expire after 48 hours, and removing a person from Settings ends their open sessions.
@@ -152,7 +165,7 @@ Every email names the sender and company, states why the reader received it and 
 
 ## Environment
 
-See `.env.example`. SMTP and IMAP passwords, the Anthropic key, the admin password, the session secret and the cron secret live in the environment. WhatsApp credentials can be entered in the panel, where they are stored encrypted. Non secret settings (sender profile, offer text, calendar link, legal details) are edited in the panel.
+See `.env.example`. SMTP and IMAP passwords, the Anthropic key, the admin password, the session secret and the cron secret live in the environment. WhatsApp credentials and the Telegram bot token are entered in the panel, where they are stored encrypted. Non secret settings (sender profile, offer text, calendar link, legal details) are edited in the panel.
 
 ## Credits and license
 

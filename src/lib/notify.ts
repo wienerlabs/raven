@@ -1,6 +1,9 @@
+import type { Database } from '@/lib/db'
 import type { AppSettings } from '@/lib/settings'
 import type { SenderConfig } from '@/lib/env'
 import { activeSenders, getTransport, resendTransport } from '@/lib/channels/email'
+import { sendTelegramText } from '@/lib/channels/telegram'
+import { resolveTelegram } from '@/lib/telegram/config'
 import { randomToken } from '@/lib/security/tokens'
 
 export function systemSender(env: NodeJS.ProcessEnv = process.env): SenderConfig | null {
@@ -18,9 +21,13 @@ export function notificationChannel(env: NodeJS.ProcessEnv = process.env): 'rese
   return getTransport().kind === 'console' ? 'none' : 'campaign'
 }
 
-export async function notifyTeam(settings: AppSettings, subject: string, lines: string[]): Promise<void> {
+export async function notifyTeam(db: Database, settings: AppSettings, subject: string, lines: string[]): Promise<void> {
   const text = lines.join('\n')
   const tasks: Array<Promise<unknown>> = []
+  const telegram = await resolveTelegram(db).catch(() => null)
+  if (telegram?.token && telegram.team) {
+    tasks.push(sendTelegramText(telegram.token, telegram.team.chatId, `${subject}\n\n${text}`.trim(), { preview: false }))
+  }
   const webhook = process.env.SLACK_WEBHOOK_URL
   if (webhook) {
     tasks.push(fetch(webhook, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: `*${subject}*\n${text}` }), signal: AbortSignal.timeout(8000) }))

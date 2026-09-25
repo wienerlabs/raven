@@ -4,7 +4,7 @@ import { anthropic } from './client'
 
 export const AI_BUSY = 'Bir saatte üretilebilecek AI taslak sınırına ulaşıldı. Biraz sonra yeniden deneyin.'
 
-export type ReplyChannel = 'whatsapp' | 'email'
+export type ReplyChannel = 'whatsapp' | 'telegram' | 'email'
 
 export interface ReplyTurn {
   direction: 'in' | 'out'
@@ -35,7 +35,7 @@ function worthAnotherModel(error: unknown): boolean {
   return /timeout|connection/i.test(name) || /timed? ?out|connection/i.test(message)
 }
 
-const lengthLimits: Record<ReplyChannel, number> = { whatsapp: 700, email: 1800 }
+const lengthLimits: Record<ReplyChannel, number> = { whatsapp: 700, telegram: 700, email: 1800 }
 const dashes = new RegExp(`[${String.fromCharCode(0x2012, 0x2013, 0x2014, 0x2015, 0x2212)}]`, 'g')
 const dashWithSpace = new RegExp(`\\s*[${String.fromCharCode(0x2012, 0x2013, 0x2014, 0x2015, 0x2212)}]\\s*`, 'g')
 const quotes = String.fromCharCode(0x201c, 0x201d, 0x2018, 0x2019)
@@ -102,8 +102,8 @@ export function buildReplyPrompt(context: ReplyContext): { system: string; user:
   const language = reply === 'en' ? 'English' : 'Turkish'
   const greeting = reply === 'en' ? `Hi ${context.contact.greetingName},` : `Merhaba ${context.contact.greetingName},`
   const channelRules =
-    context.channel === 'whatsapp'
-      ? 'Channel: WhatsApp. One to three short sentences in a single paragraph. Start with the contact\'s name only when it reads naturally. No signature.'
+    context.channel !== 'email'
+      ? `Channel: ${context.channel === 'telegram' ? 'Telegram' : 'WhatsApp'}. One to three short sentences in a single paragraph. Start with the contact's name only when it reads naturally. No signature.`
       : `Channel: email reply. Use exactly this layout: the first line is "${greeting}", then an empty line, then two to five short sentences, then an empty line, then a last line with only "${context.sender.firstName}".`
   const system = [
     `You write the next reply from ${context.sender.fullName} (${context.sender.title}, ${context.sender.company}) to a business contact who answered a personal outreach message about an AI solution designed for their company.`,

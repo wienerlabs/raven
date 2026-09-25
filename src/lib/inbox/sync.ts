@@ -79,7 +79,7 @@ export async function handleInbound(db: Database, mail: InboundMail, at = new Da
   const intent = classifyReplyIntent(body)
   await recordResponse(db, { contactId: contact.id, messageId: message?.id, channel: 'email', kind: 'reply', intent, body, fromAddress, at })
   const settings = await getSettings(db)
-  await notifyTeam(settings, `${contact.firstName} ${contact.lastName} yanıt verdi`, [`${contact.company}`, `Niyet: ${intent}`, '', body.slice(0, 800)])
+  await notifyTeam(db, settings, `${contact.firstName} ${contact.lastName} yanıt verdi`, [`${contact.company}`, `Niyet: ${intent}`, '', body.slice(0, 800)])
   return 'reply'
 }
 

@@ -8,6 +8,7 @@ export interface MessageLinks {
   openPixel: string
   whatsappLanding: string
   whatsappChat: string
+  telegramChat: string
 }
 
 export function buildLinks(baseUrl: string, slug: string, token: string): MessageLinks {
@@ -25,5 +26,6 @@ export function buildLinks(baseUrl: string, slug: string, token: string): Messag
     openPixel: `${base}/api/track/open/${token}`,
     whatsappLanding: `${base}/r/${slug}?m=${token}&s=wa`,
     whatsappChat: `${base}/r/${slug}/whatsapp?m=${token}&s=email`,
+    telegramChat: `${base}/r/${slug}/telegram?m=${token}&s=email`,
   }
 }

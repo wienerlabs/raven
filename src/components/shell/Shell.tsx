@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { FileUp, Inbox, LayoutDashboard, LogOut, MessageCircle, PanelLeftClose, PanelLeftOpen, Send, Settings, Users } from 'lucide-react'
+import { FileUp, Inbox, LayoutDashboard, LogOut, MessageCircle, PanelLeftClose, PanelLeftOpen, Send, SendHorizontal, Settings, Users } from 'lucide-react'
 import { logout } from '@/app/actions/auth'
 import { RavenBadge } from '@/components/brand/RavenMark'
 import { WienerCredit, WienerMark } from '@/components/brand/WienerMark'
@@ -47,10 +47,10 @@ function NavItem({ item, collapsed, pathname }: { item: Item; collapsed: boolean
   )
 }
 
-export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: { children: ReactNode; inboxCount: number; whatsappCount: number; tagline: string; viewer: string | null }) {
+export function Shell({ children, inboxCount, whatsappCount, telegramCount, tagline, viewer }: { children: ReactNode; inboxCount: number; whatsappCount: number; telegramCount: number; tagline: string; viewer: string | null }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const wide = isActive(pathname, '/whatsapp')
+  const wide = isActive(pathname, '/whatsapp') || isActive(pathname, '/telegram')
 
   useEffect(() => {
     try {
@@ -82,6 +82,7 @@ export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: 
     { href: '/kampanya', label: 'Kampanya', icon: Send },
     { href: '/yanitlar', label: 'Yanıtlar', icon: Inbox, badge: inboxCount },
     { href: '/whatsapp', label: 'WhatsApp', icon: MessageCircle, badge: whatsappCount },
+    { href: '/telegram', label: 'Telegram', icon: SendHorizontal, badge: telegramCount },
   ]
   const tools: Item[] = [
     { href: '/ice-aktar', label: 'İçe aktar', icon: FileUp },
@@ -138,6 +139,15 @@ export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: 
           <div className="flex items-center gap-2">
             <CommandPalette />
             {viewer ? <span className="hidden text-xs text-mute md:inline">{viewer}</span> : null}
+            <Link
+              href="/ayarlar"
+              title="Ayarlar"
+              aria-label="Ayarlar"
+              aria-current={isActive(pathname, '/ayarlar') ? 'page' : undefined}
+              className={'inline-flex h-8 w-8 items-center justify-center rounded-full border transition lg:hidden ' + (isActive(pathname, '/ayarlar') ? 'border-accent bg-accent text-on-accent' : 'border-line text-mute hover:border-accent-strong hover:text-ink')}
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
             <ThemeToggle />
             <form action={logout}>
               <motion.button
@@ -163,7 +173,7 @@ export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: 
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-line bg-surface/95 px-2 py-2 backdrop-blur lg:hidden">
-        {[...main, tools[1]].map((item) => {
+        {main.map((item) => {
           const Icon = item.icon
           const active = isActive(pathname, item.href)
           return (

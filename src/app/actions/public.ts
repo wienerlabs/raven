@@ -44,7 +44,7 @@ export async function confirmIntent(slug: string, token: string | null, intent: 
   if (!result.duplicate) {
     after(async () => {
       const settings = await getSettings(db)
-      await notifyTeam(settings, `${contact.firstName} ${contact.lastName}: ${intentLabels[parsed.data]}`, [contact.company, contact.email ?? contact.phone ?? '', `Kişi sayfası: /kisiler/${contact.id}`])
+      await notifyTeam(db, settings, `${contact.firstName} ${contact.lastName}: ${intentLabels[parsed.data]}`, [contact.company, contact.email ?? contact.phone ?? '', `Kişi sayfası: /kisiler/${contact.id}`])
     })
   }
   return { ok: true }
@@ -74,7 +74,7 @@ export async function leaveNote(slug: string, token: string | null, _: { ok: boo
   await recordResponse(db, { contactId: contact.id, messageId: message?.id, channel: 'landing', kind: 'form', intent: parsed.data.intent as Intent, body })
   after(async () => {
     const settings = await getSettings(db)
-    await notifyTeam(settings, `${contact.firstName} ${contact.lastName} not bıraktı`, [contact.company, '', body])
+    await notifyTeam(db, settings, `${contact.firstName} ${contact.lastName} not bıraktı`, [contact.company, '', body])
   })
   return { ok: true, message: language === 'en' ? 'Thank you, we will get back to you within one business day.' : 'Teşekkürler, bir iş günü içinde size dönüyoruz.' }
 }

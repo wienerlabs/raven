@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowRight, Check, MessageCircle, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Check, MessageCircle, Send, ShieldCheck } from 'lucide-react'
 import { getDb } from '@/lib/db'
 import { contactBySlug, isTestToken } from '@/lib/public'
 import { getSettings } from '@/lib/settings'
@@ -13,6 +13,8 @@ import { resolveWhatsapp } from '@/lib/whatsapp/config'
 import { getBrand } from '@/lib/brand/logo'
 import { BrandMark } from '@/components/brand/BrandMark'
 import { clickToChatText, waMeLink } from '@/lib/channels/whatsapp'
+import { previewPayload, startLink } from '@/lib/channels/telegram'
+import { resolveTelegram } from '@/lib/telegram/config'
 import { NoteForm } from './NoteForm'
 import { ViewBeacon } from './ViewBeacon'
 
@@ -53,7 +55,7 @@ export default async function LandingPage({ params, searchParams }: PageProps<'/
   const found = await contactBySlug(db, slug)
   if (!found) notFound()
   const { pitch } = found
-  const [settings, whatsapp, brand] = await Promise.all([getSettings(db), resolveWhatsapp(db), getBrand(db)])
+  const [settings, whatsapp, telegram, brand] = await Promise.all([getSettings(db), resolveWhatsapp(db), resolveTelegram(db), getBrand(db)])
   const copy = landingCopy[pitch.language]
   const token = tokenFrom(query.m)
   const testVisit = await isTestToken(db, token)
@@ -67,6 +69,8 @@ export default async function LandingPage({ params, searchParams }: PageProps<'/
       ? waMeLink(whatsapp.businessNumber, clickToChatText({ language: pitch.language, company: pitch.company.name, solution: pitch.solution.name, slug }))
       : `/r/${slug}/whatsapp?${token ? `m=${token}&` : ''}s=page`
     : null
+  const telegramHref =
+    telegram.ready && telegram.username ? (preview ? startLink(telegram.username, previewPayload(slug)) : `/r/${slug}/telegram?${token ? `m=${token}&` : ''}s=page`) : null
   const personName = [pitch.person.firstName, pitch.person.lastName].filter(Boolean).join(' ')
   const sender = settings.sender
   const website = sender.website.replace(/^https?:\/\//, '').replace(/\/+$/, '')
@@ -100,6 +104,11 @@ export default async function LandingPage({ params, searchParams }: PageProps<'/
             {whatsappHref ? (
               <a href={whatsappHref} target="_blank" rel="noreferrer" className="btn-ghost px-6 py-3">
                 <MessageCircle className="h-4 w-4" /> {copy.whatsappCta}
+              </a>
+            ) : null}
+            {telegramHref ? (
+              <a href={telegramHref} target="_blank" rel="noreferrer" className="btn-ghost px-6 py-3">
+                <Send className="h-4 w-4" /> {copy.telegramCta}
               </a>
             ) : null}
           </div>
@@ -249,6 +258,11 @@ export default async function LandingPage({ params, searchParams }: PageProps<'/
               {whatsappHref ? (
                 <a href={whatsappHref} target="_blank" rel="noreferrer" className="btn-ghost px-6 py-3">
                   <MessageCircle className="h-4 w-4" /> {copy.whatsappCta}
+                </a>
+              ) : null}
+              {telegramHref ? (
+                <a href={telegramHref} target="_blank" rel="noreferrer" className="btn-ghost px-6 py-3">
+                  <Send className="h-4 w-4" /> {copy.telegramCta}
                 </a>
               ) : null}
             </div>

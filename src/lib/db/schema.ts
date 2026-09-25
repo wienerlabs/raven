@@ -12,6 +12,7 @@ export type Channel = 'email' | 'whatsapp'
 export type MessageStatus = 'scheduled' | 'sending' | 'sent' | 'failed' | 'cancelled' | 'manual'
 export type CampaignStatus = 'draft' | 'running' | 'paused' | 'completed'
 export type Intent = 'meeting' | 'info' | 'later' | 'not_interested' | 'other'
+export type ResponseChannel = 'email' | 'whatsapp' | 'telegram' | 'landing'
 
 export interface CampaignConfig {
   timezone: string
@@ -172,6 +173,9 @@ export const events = pgTable(
     uniqueIndex('events_wa_inbound_unique')
       .on(sql`(${table.data}->>'id')`)
       .where(sql`${table.type} = 'wa_inbound'`),
+    uniqueIndex('events_tg_inbound_unique')
+      .on(sql`(${table.data}->>'id')`)
+      .where(sql`${table.type} = 'tg_inbound'`),
   ],
 )
 
@@ -183,7 +187,7 @@ export const responses = pgTable(
       .notNull()
       .references(() => contacts.id, { onDelete: 'cascade' }),
     messageId: uuid('message_id').references(() => messages.id, { onDelete: 'set null' }),
-    channel: text('channel').$type<'email' | 'whatsapp' | 'landing'>().notNull(),
+    channel: text('channel').$type<ResponseChannel>().notNull(),
     kind: text('kind').$type<'intent' | 'form' | 'reply' | 'auto_reply'>().notNull(),
     intent: text('intent').$type<Intent>().notNull().default('other'),
     body: text('body'),
@@ -197,10 +201,29 @@ export const responses = pgTable(
 
 export const suppressions = pgTable('suppressions', {
   value: text('value').primaryKey(),
-  kind: text('kind').$type<'email' | 'phone' | 'domain'>().notNull(),
+  kind: text('kind').$type<'email' | 'phone' | 'domain' | 'telegram'>().notNull(),
   reason: text('reason').notNull(),
   createdAt: createdAt(),
 })
+
+export const telegramChats = pgTable(
+  'telegram_chats',
+  {
+    chatId: text('chat_id').primaryKey(),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    username: text('username'),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    languageCode: text('language_code'),
+    linkedAt: timestamp('linked_at', { withTimezone: true }).notNull().defaultNow(),
+    blockedAt: timestamp('blocked_at', { withTimezone: true }),
+    stoppedAt: timestamp('stopped_at', { withTimezone: true }),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index('telegram_chats_contact_idx').on(table.contactId)],
+)
 
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
