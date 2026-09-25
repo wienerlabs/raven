@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="https://raven.wienerlabs.xyz/film/raven-film.mp4">Film</a> ·
   <a href="https://github.com/wienerlabs/raven/issues/17">Roadmap</a> ·
   <a href="#local-setup">Local setup</a> ·
   <a href="#whatsapp-setup">WhatsApp</a> ·
@@ -18,7 +19,13 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/raven-card.png" alt="Raven preview card" width="760">
+  <a href="https://raven.wienerlabs.xyz/film/raven-film.mp4">
+    <img src="docs/assets/raven-film-preview.webp" alt="Raven film preview: a grid of contacts turns into one AI solution per person, written live for Deniz Aksoy at Kuzey Lojistik" width="760">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://raven.wienerlabs.xyz/film/raven-film.mp4">Watch the 49 second film with sound</a> · 1080p, 60 fps
 </p>
 
 Raven is the personal outreach engine and marketing operator of Wiener Labs. It turns a contact list into one specific AI solution per person, then reaches every contact with a personal email (or a WhatsApp message when there is no email), a personal one page solution brief, one click replies and polite follow ups. Every step is paced, tracked and stoppable, and every answer lands in one inbox.
@@ -51,6 +58,14 @@ Raven is being built into a full marketing operations module and, later, a produ
 </p>
 
 The panel opens in the dark theme; the recipient side (emails, personal briefs, unsubscribe and privacy pages) stays light and carries the Wiener Labs brand.
+
+<p align="center">
+  <img src="docs/assets/raven-card.png" alt="Raven link preview card" width="760">
+</p>
+
+Shared links to Raven unfurl with this card.
+
+The film at the top walks through the whole flow: the contact list, one solution per person, the one click reply, the WhatsApp inbox with an AI draft and the Today panel. Every frame is rendered in code from the product's own fonts, colours and screens, captured in headless Chrome with motion blur and scored with synthesized sound. The people and companies in it are sample data.
 
 ## Stack
 
