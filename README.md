@@ -133,6 +133,7 @@ Every email names the sender and company, states why the reader received it and 
 | `npm run worker` | Long running dispatcher and inbox sync |
 | `npm test` | Unit and integration tests on PGlite |
 | `TEST_DATABASE_URL=postgres://... npm test` | Run the database tests on a real Postgres server |
+| `ANTHROPIC_API_KEY=... npm run test:live` | Draft real replies for eight scenarios (meeting, details, decline, English, prompt injection, email layout) and check the house rules; set `RAVEN_LIVE_OUT=drafts.md` to read the drafts |
 
 ## Environment
 

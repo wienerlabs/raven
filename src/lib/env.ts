@@ -69,8 +69,10 @@ export function aiModel(env: NodeJS.ProcessEnv = process.env): string {
   return env.RAVEN_AI_MODEL?.trim() || 'claude-opus-5-5'
 }
 
-export function replyModel(env: NodeJS.ProcessEnv = process.env): string {
-  return env.RAVEN_REPLY_MODEL?.trim() || 'claude-sonnet-5'
+export function replyModels(env: NodeJS.ProcessEnv = process.env): string[] {
+  const primary = env.RAVEN_REPLY_MODEL?.trim() || 'claude-opus-5-5'
+  const fallback = env.RAVEN_REPLY_FALLBACK_MODEL?.trim() || 'claude-sonnet-5'
+  return primary === fallback ? [primary] : [primary, fallback]
 }
 
 export function hasAi(env: NodeJS.ProcessEnv = process.env): boolean {

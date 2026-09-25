@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src scripts tests",
     "test": "vitest run",
+    "test:live": "RAVEN_LIVE_AI=1 vitest run tests/live",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "import:contacts": "tsx scripts/import-contacts.ts",

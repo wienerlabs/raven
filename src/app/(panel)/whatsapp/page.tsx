@@ -20,6 +20,7 @@ import { AddToQueue } from './QueueActions'
 import { WhatsappSetup } from './WhatsappSetup'
 
 export const metadata: Metadata = { title: 'WhatsApp' }
+export const maxDuration = 60
 
 type Tab = 'sohbetler' | 'kuyruk' | 'kurulum'
 

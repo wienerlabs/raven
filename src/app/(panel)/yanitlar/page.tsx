@@ -13,6 +13,7 @@ import { HandledButton } from './HandledButton'
 import { EmailDraft } from './EmailDraft'
 
 export const metadata: Metadata = { title: 'Yanıtlar' }
+export const maxDuration = 60
 
 const channelLabels = { email: 'E-posta yanıtı', whatsapp: 'WhatsApp', landing: 'Taslak sayfası' } as const
 const kindLabels = { intent: 'Tek tık', form: 'Not', reply: 'Yanıt', auto_reply: 'Otomatik yanıt' } as const
