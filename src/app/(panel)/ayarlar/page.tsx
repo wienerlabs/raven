@@ -8,11 +8,13 @@ import { accessOverview } from '@/lib/auth/passkeys'
 import { resolveWhatsapp } from '@/lib/whatsapp/config'
 import { getAuthPolicy } from '@/lib/auth/policy'
 import { getBrand } from '@/lib/brand/logo'
+import { defaultSnippets, getSnippets } from '@/lib/whatsapp/snippets'
 import { BrandLogoCard } from './BrandLogoCard'
 import { isMemberSession, requireAdmin } from '@/lib/security/session'
 import { SettingsForm } from './SettingsForm'
 import { SenderChecks } from './SenderChecks'
 import { AccessPanel } from './AccessPanel'
+import { SnippetsEditor } from './SnippetsEditor'
 
 export const metadata: Metadata = { title: 'Ayarlar' }
 
@@ -28,7 +30,7 @@ function Line({ label, value, ok }: { label: string; value: string; ok?: boolean
 export default async function SettingsPage() {
   const session = await requireAdmin()
   const db = await getDb()
-  const [settings, access, whatsapp, policy, brand] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db), getAuthPolicy(db), getBrand(db)])
+  const [settings, access, whatsapp, policy, brand, snippets] = await Promise.all([getSettings(db), accessOverview(db), resolveWhatsapp(db), getAuthPolicy(db), getBrand(db), getSnippets(db)])
   const viewerMemberId = isMemberSession(session) ? session.sub : null
   const viewerHasPasskey = Boolean(viewerMemberId && access.members.some((member) => member.id === viewerMemberId && member.passkeys.length > 0))
   const env = environmentSummary()
@@ -56,6 +58,8 @@ export default async function SettingsPage() {
       <BrandLogoCard logo={brand.logo ? { hash: brand.logo.hash, width: brand.logo.width, height: brand.logo.height, size: brand.logo.size } : null} showCompanyName={brand.showCompanyName} company={settings.sender.company} />
 
       <SettingsForm action={saveSettingsAction} settings={settings} />
+
+      <SnippetsEditor initial={snippets} defaults={defaultSnippets} />
 
       <section id="altyapi" className="grid gap-6 lg:grid-cols-2">
         <div className="card">

@@ -121,3 +121,15 @@ export async function markWebhookVerified(db: Database, at = new Date()): Promis
   const current = await getStoredWhatsapp(db)
   await setState(db, KEY, { ...current, webhookVerifiedAt: at.toISOString() })
 }
+
+export type SetupKey = 'number' | 'cloud' | 'webhook' | 'template' | 'auto'
+
+export function setupChecklist(resolved: ResolvedWhatsapp): Array<{ key: SetupKey; done: boolean }> {
+  return [
+    { key: 'number', done: Boolean(resolved.businessNumber) },
+    { key: 'cloud', done: Boolean(resolved.cloud) },
+    { key: 'webhook', done: Boolean(resolved.webhookVerifiedAt) && resolved.hasAppSecret },
+    { key: 'template', done: resolved.stored.templates.some((item) => item.status === 'APPROVED') },
+    { key: 'auto', done: resolved.mode === 'cloud' },
+  ]
+}

@@ -90,6 +90,13 @@ export function templateDefinitions(base: string): TemplateDefinition[] {
   ]
 }
 
+export function templateText(language: 'tr' | 'en', values: { greetingName: string; company: string; solution: string }): string {
+  const definitions = templateDefinitions('')
+  const definition = definitions.find((item) => item.language === language) ?? definitions[0]
+  const fill = [values.greetingName, values.company, values.solution].map(clean)
+  return `${definition.body.replace(/\{\{([123])\}\}/g, (_, index: string) => fill[Number(index) - 1])}\n\n${definition.footer}`
+}
+
 export function templateCreatePayload(name: string, definition: TemplateDefinition) {
   return {
     name,

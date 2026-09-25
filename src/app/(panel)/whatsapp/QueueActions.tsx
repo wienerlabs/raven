@@ -2,34 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { cancelWhatsapp, markWhatsappSent, queueWhatsapp } from '@/app/actions/data'
+import { queueWhatsapp } from '@/app/actions/data'
 import { MotionButton } from '@/components/ui/MotionButton'
-
-export function QueueActions({ messageId, link }: { messageId: string; link: string | null }) {
-  const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const [opened, setOpened] = useState(false)
-  const act = (task: () => Promise<unknown>) =>
-    startTransition(async () => {
-      await task()
-      router.refresh()
-    })
-  return (
-    <div className="flex flex-wrap gap-2">
-      {link ? (
-        <a href={link} target="_blank" rel="noreferrer" className="btn btn-sm" onClick={() => setOpened(true)}>
-          WhatsApp&apos;ta aç
-        </a>
-      ) : null}
-      <MotionButton variant={opened ? 'primary' : 'ghost'} small disabled={pending} onClick={() => act(() => markWhatsappSent(messageId))}>
-        Gönderildi
-      </MotionButton>
-      <MotionButton variant="ghost" small disabled={pending} onClick={() => act(() => cancelWhatsapp(messageId))}>
-        Kuyruktan çıkar
-      </MotionButton>
-    </div>
-  )
-}
 
 export function AddToQueue({ contacts }: { contacts: Array<{ id: string; name: string; company: string; phone: string }> }) {
   const router = useRouter()

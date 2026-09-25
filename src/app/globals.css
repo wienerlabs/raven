@@ -106,9 +106,11 @@ p {
   text-wrap: pretty;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-accent-strong);
-  outline-offset: 2px;
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-accent-strong);
+    outline-offset: 2px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

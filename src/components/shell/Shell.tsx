@@ -9,6 +9,7 @@ import { logout } from '@/app/actions/auth'
 import { RavenBadge } from '@/components/brand/RavenMark'
 import { WienerCredit, WienerMark } from '@/components/brand/WienerMark'
 import { ThemeToggle } from './ThemeToggle'
+import { CommandPalette } from './CommandPalette'
 
 interface Item {
   href: string
@@ -49,6 +50,7 @@ function NavItem({ item, collapsed, pathname }: { item: Item; collapsed: boolean
 export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: { children: ReactNode; inboxCount: number; whatsappCount: number; tagline: string; viewer: string | null }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const wide = isActive(pathname, '/whatsapp')
 
   useEffect(() => {
     try {
@@ -134,7 +136,8 @@ export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: 
             <span>{tagline}</span>
           </div>
           <div className="flex items-center gap-2">
-            {viewer ? <span className="hidden text-xs text-mute sm:inline">{viewer}</span> : null}
+            <CommandPalette />
+            {viewer ? <span className="hidden text-xs text-mute md:inline">{viewer}</span> : null}
             <ThemeToggle />
             <form action={logout}>
               <motion.button
@@ -149,7 +152,7 @@ export function Shell({ children, inboxCount, whatsappCount, tagline, viewer }: 
             </form>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl px-5 pb-28 pt-6 lg:pb-16">{children}</main>
+        <main className={'mx-auto w-full px-5 pb-28 pt-6 lg:pb-16 ' + (wide ? 'max-w-[92rem]' : 'max-w-6xl')}>{children}</main>
         <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-5 text-xs text-mute">
           <span className="inline-flex items-center gap-2">
             <WienerMark size={14} />

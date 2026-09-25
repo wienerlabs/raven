@@ -69,6 +69,10 @@ export function aiModel(env: NodeJS.ProcessEnv = process.env): string {
   return env.RAVEN_AI_MODEL?.trim() || 'claude-opus-5-5'
 }
 
+export function replyModel(env: NodeJS.ProcessEnv = process.env): string {
+  return env.RAVEN_REPLY_MODEL?.trim() || 'claude-sonnet-5'
+}
+
 export function hasAi(env: NodeJS.ProcessEnv = process.env): boolean {
   return Boolean(env.ANTHROPIC_API_KEY?.trim())
 }

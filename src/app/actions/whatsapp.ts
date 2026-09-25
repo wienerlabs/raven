@@ -1,16 +1,22 @@
 'use server'
 
-import { and, asc, eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { getDb } from '@/lib/db'
-import { contacts, pitches, responses } from '@/lib/db/schema'
-import { baseUrl } from '@/lib/env'
+import { contacts, pitches } from '@/lib/db/schema'
+import { baseUrl, hasAi } from '@/lib/env'
 import { requireAdmin } from '@/lib/security/session'
 import { normalizePhone } from '@/lib/contacts/phone'
 import { recordEvent } from '@/lib/campaign/state'
 import { phoneNumberInfo, sendWhatsappTemplate, sendWhatsappText, submitTemplates, templateStatuses } from '@/lib/channels/whatsapp'
 import { recordTemplateStatuses, resolveWhatsapp, saveWhatsappSettings } from '@/lib/whatsapp/config'
 import { latestInbound, linkWhatsappSender, replyWindowOpen } from '@/lib/whatsapp/inbound'
+import { setThreadHandled } from '@/lib/whatsapp/inbox'
+import { checkSnippets, saveSnippets, type Snippet } from '@/lib/whatsapp/snippets'
+import { AI_BUSY, draftReply } from '@/lib/ai/reply'
+import { aiFailure } from '@/lib/ai/client'
+import { takeAiBudget } from '@/lib/security/ai-budget'
+import { replyContextFor } from '@/lib/ai/reply-context'
 import type { ActionResult } from './contacts'
 
 function refresh() {
@@ -126,10 +132,7 @@ export async function replyWhatsappAction(contactId: string, body: string): Prom
   const result = await sendWhatsappText(cloud, to, text)
   if (result.error) return { ok: false, message: `Gönderilemedi: ${result.error}` }
   await recordEvent(db, { contactId: contact.id, type: 'wa_reply', data: { text: text.slice(0, 1000), id: result.providerId, to } })
-  await db
-    .update(responses)
-    .set({ handled: true, handledAt: new Date() })
-    .where(and(eq(responses.contactId, contact.id), eq(responses.channel, 'whatsapp'), eq(responses.handled, false)))
+  await setThreadHandled(db, contact.id, true)
   refresh()
   return { ok: true, message: 'Yanıt WhatsApp üzerinden gönderildi.' }
 }
@@ -148,4 +151,58 @@ export async function linkWhatsappNumberAction(contactId: string): Promise<Actio
     taken: 'Bu numara başka bir kişiye kayıtlı.',
   } as const
   return { ok: false, message: reasons[result.reason] }
+}
+
+const contactPattern = /^[0-9a-f-]{36}$/i
+
+export async function draftWhatsappReplyAction(contactId: string): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
+  const session = await requireAdmin()
+  if (!contactPattern.test(contactId)) return { ok: false, message: 'Kişi bulunamadı.' }
+  if (!hasAi()) return { ok: false, message: 'AI taslak için ANTHROPIC_API_KEY tanımlı olmalı.' }
+  const db = await getDb()
+  if (!(await takeAiBudget(db, session.sub))) return { ok: false, message: AI_BUSY }
+  const context = await replyContextFor(db, contactId, 'whatsapp')
+  if (!context) return { ok: false, message: 'Kişi bulunamadı.' }
+  try {
+    const draft = await draftReply(context)
+    return { ok: true, text: draft.text }
+  } catch (error) {
+    console.error('reply draft failed', error)
+    return { ok: false, message: aiFailure(error) }
+  }
+}
+
+export async function markManualReplyAction(contactId: string, body: string): Promise<ActionResult> {
+  await requireAdmin()
+  const text = body.trim()
+  if (!contactPattern.test(contactId)) return { ok: false, message: 'Kişi bulunamadı.' }
+  if (text.length < 2 || text.length > 4000) return { ok: false, message: 'Mesaj 2 ile 4000 karakter arasında olmalı.' }
+  const db = await getDb()
+  const last = await latestInbound(db, contactId)
+  const to = last?.from ? normalizePhone(last.from) : null
+  if (!to) return { ok: false, message: 'Bu kişiden gelen bir WhatsApp mesajı yok.' }
+  await recordEvent(db, { contactId, type: 'wa_reply', data: { text: text.slice(0, 1000), manual: true, to } })
+  await setThreadHandled(db, contactId, true)
+  refresh()
+  return { ok: true, message: 'Yanıt kaydedildi.' }
+}
+
+export async function setWhatsappHandledAction(contactId: string, handled: boolean): Promise<ActionResult> {
+  await requireAdmin()
+  if (!contactPattern.test(contactId)) return { ok: false, message: 'Kişi bulunamadı.' }
+  const db = await getDb()
+  await setThreadHandled(db, contactId, handled === true)
+  refresh()
+  return { ok: true, message: handled ? 'Sohbet yanıtlandı olarak işaretlendi.' : 'Sohbet yeniden bekleyenlere alındı.' }
+}
+
+export async function saveSnippetsAction(items: Array<{ id?: string; title: string; body: string }>): Promise<ActionResult & { items?: Snippet[] }> {
+  await requireAdmin()
+  if (!Array.isArray(items)) return { ok: false, message: 'Liste okunamadı.' }
+  const check = checkSnippets(items.map((item) => ({ id: typeof item.id === 'string' ? item.id : undefined, title: String(item.title ?? ''), body: String(item.body ?? '') })))
+  if (!check.ok) return { ok: false, message: check.message }
+  const db = await getDb()
+  await saveSnippets(db, check.items)
+  refresh()
+  return { ok: true, message: check.items.length ? `${check.items.length} hazır yanıt kaydedildi.` : 'Liste boş kaydedildi; varsayılan yanıtlar kullanılacak.', items: check.items }
 }

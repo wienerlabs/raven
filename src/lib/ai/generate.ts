@@ -3,23 +3,13 @@ import { aiModel } from '@/lib/env'
 import { pitchJsonSchema, type Pitch } from '@/lib/pitch/schema'
 import { checkPitch, type PitchContext } from '@/lib/pitch/validate'
 import { buildPitchUserPrompt, PITCH_SYSTEM_PROMPT, type PitchInput } from './prompt'
+import { anthropic } from './client'
 
 export interface GeneratedPitch {
   pitch: Pitch
   warnings: string[]
   model: string
   attempts: number
-}
-
-let client: Anthropic | null = null
-
-async function anthropic(): Promise<Anthropic> {
-  if (client) return client
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) throw new Error('ANTHROPIC_API_KEY is not configured')
-  const { default: AnthropicClient } = await import('@anthropic-ai/sdk')
-  client = new AnthropicClient({ apiKey: key, maxRetries: 3, timeout: 120_000 })
-  return client
 }
 
 function toolSchema(): Anthropic.Tool.InputSchema {

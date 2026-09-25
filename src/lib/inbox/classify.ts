@@ -64,7 +64,7 @@ export function wantsUnsubscribe(text: string): boolean {
 export function classifyReplyIntent(text: string): Intent {
   const value = text.toLowerCase()
   if (/(ilgilenmiyoruz|ilgilenmiyorum|not interested|gerek yok|ihtiyac[ıi]m[ıi]z yok|ihtiyac[ıi]m yok|şu an de[ğg]il|su an degil|no thanks|not now|uygun de[ğg]il)/.test(value)) return 'not_interested'
-  if (/(görüşelim|gorusmek|görüşebiliriz|toplant[ıi]|uygunum|müsaitim|musaitim|takvim|randevu|call|meeting|meet|schedule|let's talk|zoom|teams|google meet)/.test(value)) return 'meeting'
+  if (/(görüşelim|görüşmek|gorusmek|gorusalim|görüşebiliriz|görüşme ayarla|konuşalım|konusalim|konuşabiliriz|toplant[ıi]|uygunum|müsaitim|musaitim|takvim|randevu|call|meeting|meet|schedule|let's talk|zoom|teams|google meet)/.test(value)) return 'meeting'
   if (/(detay|bilgi|sunum|döküman|doküman|dokuman|fiyat|teklif|details|more info|information|deck|pricing|proposal)/.test(value)) return 'info'
   return 'other'
 }

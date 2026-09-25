@@ -44,6 +44,9 @@ describe('inbound classification', () => {
 
   it('classifies reply intent and unsubscribe wishes', () => {
     expect(classifyReplyIntent('Perşembe için bir toplantı ayarlayalım')).toBe('meeting')
+    expect(classifyReplyIntent('Görüşmek isterim. Salı öğleden sonra uygun mu?')).toBe('meeting')
+    expect(classifyReplyIntent('Kısaca konuşalım, bu hafta olur')).toBe('meeting')
+    expect(classifyReplyIntent('Görüşmeye gerek yok, teşekkürler')).toBe('not_interested')
     expect(classifyReplyIntent('Önce biraz daha detay paylaşır mısınız')).toBe('info')
     expect(classifyReplyIntent('Şu an için ihtiyacımız yok, teşekkürler')).toBe('not_interested')
     expect(wantsUnsubscribe('Lütfen beni listeden çıkarın')).toBe(true)

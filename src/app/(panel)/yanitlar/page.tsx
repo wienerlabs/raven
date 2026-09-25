@@ -5,12 +5,12 @@ import { listResponses } from '@/lib/queries'
 import { formatDateTime, intentLabels } from '@/lib/labels'
 import { waMeLink } from '@/lib/channels/whatsapp'
 import { formatPhone } from '@/lib/contacts/phone'
+import { hasAi } from '@/lib/env'
+import { mailtoHref } from '@/lib/email/mailto'
 import { IntentBadge, StageBadge } from '@/components/ui/Badges'
 import { EmptyState } from '@/components/ui/Metric'
-import { WhatsappReply } from '@/components/whatsapp/WhatsappReply'
-import { resolveWhatsapp } from '@/lib/whatsapp/config'
-import { REPLY_WINDOW_MS, replyWindowOpen } from '@/lib/whatsapp/inbound'
 import { HandledButton } from './HandledButton'
+import { EmailDraft } from './EmailDraft'
 
 export const metadata: Metadata = { title: 'Yanıtlar' }
 
@@ -22,14 +22,8 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
   const show = typeof params.show === 'string' ? params.show : 'open'
   const intent = typeof params.intent === 'string' ? params.intent : undefined
   const db = await getDb()
-  const [rows, whatsappConfig] = await Promise.all([listResponses(db, { show, intent }), resolveWhatsapp(db)])
-  const latestWhatsapp = new Map<string, Date>()
-  for (const { response, contact } of rows) {
-    if (response.channel !== 'whatsapp' || response.kind !== 'reply') continue
-    const current = latestWhatsapp.get(contact.id)
-    if (!current || response.createdAt > current) latestWhatsapp.set(contact.id, response.createdAt)
-  }
-  const now = new Date()
+  const rows = await listResponses(db, { show, intent })
+  const ai = hasAi()
   const tabs = [
     { key: 'open', label: 'Bekleyenler' },
     { key: 'all', label: 'Tümü' },
@@ -60,11 +54,10 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
       ) : (
         <ul className="space-y-3">
           {rows.map(({ response, contact, solution, greeting }) => {
-            const replySubject = encodeURIComponent(`${solution ?? 'Wiener Labs'} hakkında`)
-            const mailto = contact.email ? `mailto:${contact.email}?subject=${replySubject}` : null
-            const replyNumber = response.channel === 'whatsapp' && response.fromAddress ? response.fromAddress : contact.phone
-            const unverified = response.channel === 'whatsapp' && Boolean(response.fromAddress) && response.fromAddress !== contact.phone
-            const whatsapp = replyNumber ? waMeLink(replyNumber, `Merhaba ${greeting ?? contact.firstName}, `) : null
+            const mailto = mailtoHref(contact.email, { subject: `${solution ?? 'Wiener Labs'} hakkında` })
+            const isWhatsapp = response.channel === 'whatsapp'
+            const unverified = isWhatsapp && Boolean(response.fromAddress) && response.fromAddress !== contact.phone
+            const whatsapp = !isWhatsapp && contact.phone ? waMeLink(contact.phone, `Merhaba ${greeting ?? contact.firstName}, `) : null
             return (
               <li key={response.id} className={`card ${response.handled ? 'opacity-70' : ''}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -90,28 +83,24 @@ export default async function ResponsesPage({ searchParams }: PageProps<'/yanitl
                 </div>
                 {response.body ? <p className="mt-4 whitespace-pre-line rounded-2xl bg-soft p-4 text-sm text-ink">{response.body}</p> : null}
                 <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {mailto ? (
+                  {isWhatsapp ? (
+                    <Link href={`/whatsapp?kisi=${contact.id}`} className="btn btn-sm">
+                      WhatsApp sohbetini aç
+                    </Link>
+                  ) : null}
+                  {!isWhatsapp && mailto ? (
                     <a href={mailto} className="btn btn-sm">
                       E-posta ile yanıtla
                     </a>
                   ) : null}
                   {whatsapp ? (
                     <a href={whatsapp} target="_blank" rel="noreferrer" className="btn-ghost btn-sm">
-                      WhatsApp ({formatPhone(replyNumber)})
+                      WhatsApp ({formatPhone(contact.phone)})
                     </a>
                   ) : null}
                   <HandledButton id={response.id} handled={response.handled} />
+                  {ai && !isWhatsapp && contact.email && response.kind !== 'auto_reply' ? <EmailDraft responseId={response.id} email={contact.email} /> : null}
                 </div>
-                {whatsappConfig.cloud && response.channel === 'whatsapp' && response.kind === 'reply' && response.fromAddress ? (
-                  <div className="mt-4 border-t border-line pt-4">
-                    <WhatsappReply
-                      contactId={contact.id}
-                      windowOpen={replyWindowOpen(latestWhatsapp.get(contact.id) ?? response.createdAt, now)}
-                      closesAt={new Date((latestWhatsapp.get(contact.id) ?? response.createdAt).getTime() + REPLY_WINDOW_MS).toISOString()}
-                      placeholder={`${greeting ?? contact.firstName} için WhatsApp yanıtı`}
-                    />
-                  </div>
-                ) : null}
               </li>
             )
           })}

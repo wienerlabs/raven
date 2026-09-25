@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 export type Theme = 'light' | 'dark'
 
 const KEY = 'raven.theme'
+const EVENT = 'raven:theme'
 const browserColors: Record<Theme, string> = { dark: '#0b0b0e', light: '#ffffff' }
 
 function readTheme(): Theme {
@@ -30,12 +31,16 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   const [theme, setTheme] = useState<Theme>('dark')
   useEffect(() => {
     setTheme(readTheme())
+    const sync = () => setTheme(readTheme())
+    window.addEventListener(EVENT, sync)
+    return () => window.removeEventListener(EVENT, sync)
   }, [])
   const toggle = useCallback(() => {
     const next: Theme = readTheme() === 'dark' ? 'light' : 'dark'
     applyTheme(next)
     persist(next)
     setTheme(next)
+    window.dispatchEvent(new Event(EVENT))
   }, [])
   return { theme, toggle }
 }

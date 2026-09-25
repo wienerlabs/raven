@@ -6,7 +6,11 @@ import { campaigns, contacts, domains, events, messages, pitches, responses, typ
 export async function navCounts(db: Database) {
   const [inbox] = await db.select({ value: count() }).from(responses).where(and(eq(responses.handled, false), ne(responses.kind, 'auto_reply')))
   const [whatsapp] = await db.select({ value: count() }).from(messages).where(and(eq(messages.status, 'manual'), eq(messages.channel, 'whatsapp')))
-  return { inbox: inbox?.value ?? 0, whatsapp: whatsapp?.value ?? 0 }
+  const [conversations] = await db
+    .select({ value: countDistinct(responses.contactId) })
+    .from(responses)
+    .where(and(eq(responses.channel, 'whatsapp'), eq(responses.kind, 'reply'), eq(responses.handled, false)))
+  return { inbox: inbox?.value ?? 0, whatsapp: (whatsapp?.value ?? 0) + (conversations?.value ?? 0) }
 }
 
 export async function overviewStats(db: Database) {
@@ -342,51 +346,4 @@ export async function sectorPerformance(db: Database, limit = 6) {
       .sort((left, right) => (anySent ? right.contacted - left.contacted || right.responded - left.responded : right.people - left.people))
       .slice(0, limit),
   }
-}
-
-export interface ConversationMessage {
-  direction: 'in' | 'out'
-  text: string
-  at: Date
-}
-
-export async function whatsappConversations(db: Database, limit = 12) {
-  const inbound = await db
-    .select({ id: responses.id, body: responses.body, at: responses.createdAt, from: responses.fromAddress, handled: responses.handled, contact: { id: contacts.id, firstName: contacts.firstName, lastName: contacts.lastName, company: contacts.company, phone: contacts.phone } })
-    .from(responses)
-    .innerJoin(contacts, eq(contacts.id, responses.contactId))
-    .where(and(eq(responses.channel, 'whatsapp'), eq(responses.kind, 'reply')))
-    .orderBy(desc(responses.createdAt))
-    .limit(300)
-  if (inbound.length === 0) return []
-  const contactIds = [...new Set(inbound.map((row) => row.contact.id))]
-  const outbound = await db
-    .select({ contactId: events.contactId, data: events.data, at: events.createdAt })
-    .from(events)
-    .where(and(eq(events.type, 'wa_reply'), inArray(events.contactId, contactIds)))
-    .orderBy(desc(events.createdAt))
-    .limit(300)
-  const threads = new Map<string, { contact: (typeof inbound)[number]['contact']; lastInboundAt: Date; from: string | null; verified: boolean; unhandled: number; messages: ConversationMessage[] }>()
-  for (const row of inbound) {
-    const thread = threads.get(row.contact.id) ?? { contact: row.contact, lastInboundAt: row.at, from: row.from, verified: Boolean(row.from && row.from === row.contact.phone), unhandled: 0, messages: [] }
-    if (row.at > thread.lastInboundAt) {
-      thread.lastInboundAt = row.at
-      thread.from = row.from
-      thread.verified = Boolean(row.from && row.from === row.contact.phone)
-    }
-    if (!row.handled) thread.unhandled += 1
-    thread.messages.push({ direction: 'in', text: row.body ?? '', at: row.at })
-    threads.set(row.contact.id, thread)
-  }
-  for (const row of outbound) {
-    if (!row.contactId) continue
-    const thread = threads.get(row.contactId)
-    if (!thread) continue
-    const text = typeof row.data.text === 'string' ? row.data.text : ''
-    thread.messages.push({ direction: 'out', text, at: row.at })
-  }
-  return [...threads.values()]
-    .map((thread) => ({ ...thread, messages: thread.messages.sort((left, right) => left.at.getTime() - right.at.getTime()).slice(-6) }))
-    .sort((left, right) => right.lastInboundAt.getTime() - left.lastInboundAt.getTime())
-    .slice(0, limit)
 }

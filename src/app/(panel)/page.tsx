@@ -1,14 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { ArrowRight, Check } from 'lucide-react'
+import { ArrowRight, Check, Sparkles } from 'lucide-react'
 import { getDb } from '@/lib/db'
 import { ensureCampaign, nextScheduled } from '@/lib/campaign/launch'
 import { latestCampaign, overviewStats, readyToLaunch, recentResponses, responseMix, responsePulse, sectorPerformance } from '@/lib/queries'
 import { readiness } from '@/lib/readiness'
+import { todayTasks, type TodayTask } from '@/lib/today'
 import { getSettings } from '@/lib/settings'
 import { formatDateTime, percent, stageLabels } from '@/lib/labels'
 import { IntentBadge } from '@/components/ui/Badges'
-import { EmptyState, Metric, Row } from '@/components/ui/Metric'
+import { EmptyState, Metric } from '@/components/ui/Metric'
 import { ResponsePulse } from '@/components/charts/ResponsePulse'
 import { ResponseBreakdown } from '@/components/charts/ResponseBreakdown'
 import { LiveRefresh } from '@/components/charts/LiveRefresh'
@@ -19,9 +20,51 @@ export const metadata: Metadata = { title: 'Panel' }
 const funnel: Stage[] = ['new', 'queued', 'contacted', 'engaged', 'replied', 'meeting', 'declined', 'unsubscribed', 'bounced']
 const campaignStatusLabels = { draft: 'Başlatılmadı', running: 'Gönderiyor', paused: 'Durduruldu', completed: 'Tamamlandı' } as const
 
+function TodayPanel({ tasks }: { tasks: TodayTask[] }) {
+  const total = tasks.reduce((sum, task) => sum + task.count, 0)
+  return (
+    <div className="card flex flex-col">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg text-ink">Bugün</h2>
+          <p className="mt-0.5 text-sm text-mute">{tasks.length ? 'Sizi bekleyenler, önem sırasıyla.' : 'Şu an sizi bekleyen bir şey yok.'}</p>
+        </div>
+        {total ? <span className="rounded-full border border-accent bg-accent px-2.5 py-0.5 text-xs text-on-accent">{total}</span> : null}
+      </div>
+      {tasks.length ? (
+        <ul className="mt-4 space-y-1">
+          {tasks.map((task) => (
+            <li key={task.key}>
+              <Link href={task.href} className="group flex items-center gap-3 rounded-2xl px-2 py-2.5 transition hover:bg-soft">
+                <span className={'inline-flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full px-2 text-sm ' + (task.urgent ? 'bg-accent text-on-accent' : 'border border-line bg-canvas text-ink')}>{task.count}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm text-ink">{task.label}</span>
+                  {task.detail ? <span className="block truncate text-xs text-mute">{task.detail}</span> : null}
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-mute transition group-hover:translate-x-0.5 group-hover:text-ink" />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-6 flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-line px-4 py-8 text-center">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-accent bg-accent text-on-accent">
+            <Check className="h-4 w-4" />
+          </span>
+          <p className="mt-3 text-sm text-ink">Her şey yolunda</p>
+          <p className="mt-0.5 max-w-xs text-xs text-mute">Yeni yanıt, WhatsApp mesajı ya da onay bekleyen içerik geldiğinde burada görünür.</p>
+        </div>
+      )}
+      <p className="mt-auto flex items-center gap-1.5 pt-4 text-[11px] text-mute">
+        <Sparkles className="h-3 w-3" /> Her yerden aramak için ⌘K ya da Ctrl K
+      </p>
+    </div>
+  )
+}
+
 export default async function OverviewPage() {
   const db = await getDb()
-  const [stats, settings, responses, ready] = await Promise.all([overviewStats(db), getSettings(db), recentResponses(db), readyToLaunch(db)])
+  const [stats, settings, responses, ready, tasks] = await Promise.all([overviewStats(db), getSettings(db), recentResponses(db), readyToLaunch(db), todayTasks(db)])
   const campaign = (await latestCampaign(db)) ?? (await ensureCampaign(db))
   const [next, pulse, mix, sectors] = await Promise.all([
     nextScheduled(db, campaign.id),
@@ -43,8 +86,18 @@ export default async function OverviewPage() {
             {stats.total > 0 ? `${stats.total} kişi, ${stats.total} ayrı çözüm.` : 'Listenizi yükleyin, her kişiye kendi çözümünü hazırlayalım.'}
           </h1>
           <p className="mt-4 max-w-xl text-base text-mute">
-            Her alıcı, kendi şirketine ve rolüne göre tasarlanmış bir yapay zekâ çözümü, kişisel bir taslak sayfası ve tek tıkla yanıt verebileceği bir e-posta alır. Gönderimler mesai saatlerinde kademeli ilerler, yanıt verenlere takip gitmez.
+            Her alıcı kendi şirketine ve rolüne göre tasarlanmış bir yapay zekâ çözümü, kişisel bir taslak sayfası ve tek tıkla yanıt verebileceği bir mesaj alır. Yanıt verenlere takip gitmez.
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
+            <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-ink">
+              {campaign.status === 'running' ? <span className="live-dot" /> : null}
+              {campaign.name}
+              <span className="text-mute">· {campaignStatusLabels[campaign.status]}</span>
+            </span>
+            <span className="pill">Sıradaki gönderim: {next ? formatDateTime(next) : 'yok'}</span>
+            <span className="pill">{contacted} ilk e-posta, {stats.sentFollowUps} takip</span>
+          </div>
+          {campaign.pauseReason && campaign.status === 'paused' ? <p className="mt-2 text-xs text-mute">{campaign.pauseReason}</p> : null}
           <div className="mt-6 flex flex-wrap gap-2">
             <Link href="/kampanya" className="btn">
               {campaign.status === 'running' ? 'Kampanyayı izle' : `Kampanyaya geç${ready ? ` (${ready} hazır)` : ''}`}
@@ -55,22 +108,7 @@ export default async function OverviewPage() {
             </Link>
           </div>
         </div>
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-ink">
-              {campaign.status === 'running' ? <span className="live-dot" /> : null}
-              {campaign.name}
-            </div>
-            <span className={campaign.status === 'running' ? 'rounded-full border border-accent bg-accent px-2.5 py-0.5 text-xs text-on-accent' : 'pill'}>{campaignStatusLabels[campaign.status]}</span>
-          </div>
-          <div className="mt-4 space-y-2">
-            <Row label="İlk e-posta gönderilen" value={contacted} />
-            <Row label="Takip e-postası" value={stats.sentFollowUps} />
-            <Row label="Sıradaki gönderim" value={next ? formatDateTime(next) : 'Yok'} />
-            <Row label="Gönderime hazır" value={ready} />
-          </div>
-          {campaign.pauseReason && campaign.status === 'paused' ? <p className="mt-3 text-xs text-mute">{campaign.pauseReason}</p> : null}
-        </div>
+        <TodayPanel tasks={tasks} />
       </section>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
