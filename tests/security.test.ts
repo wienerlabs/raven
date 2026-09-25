@@ -52,3 +52,13 @@ describe('whatsapp', () => {
     expect(isStopWord('Durumu nedir')).toBe(false)
   })
 })
+
+describe('system notification sender', () => {
+  it('uses Resend only with a key and a valid from address', async () => {
+    const { systemSender } = await import('@/lib/notify')
+    expect(systemSender({ RESEND_API_KEY: 're_x', RAVEN_NOTIFY_FROM: 'Raven <bildirim@raven.example.com>' } as unknown as NodeJS.ProcessEnv)).toMatchObject({ id: 'system', name: 'Raven', email: 'bildirim@raven.example.com' })
+    expect(systemSender({ RESEND_API_KEY: 're_x', RAVEN_NOTIFY_FROM: 'bildirim@raven.example.com' } as unknown as NodeJS.ProcessEnv)).toMatchObject({ name: 'Raven', email: 'bildirim@raven.example.com' })
+    expect(systemSender({ RAVEN_NOTIFY_FROM: 'bildirim@raven.example.com' } as unknown as NodeJS.ProcessEnv)).toBeNull()
+    expect(systemSender({ RESEND_API_KEY: 're_x', RAVEN_NOTIFY_FROM: 'not an address' } as unknown as NodeJS.ProcessEnv)).toBeNull()
+  })
+})

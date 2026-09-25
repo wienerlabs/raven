@@ -82,7 +82,7 @@ npm run build && npm start
 3. Warm new mailboxes for two weeks at 20 to 40 emails a day, then raise `SENDER_DAILY_LIMIT` gradually. Several mailboxes can be listed as JSON in `RAVEN_SENDERS` and Raven rotates between them.
 4. Send yourself tests from a contact page before launching. Links opened from test emails run in preview mode and never change a contact.
 
-Resend is supported through `EMAIL_PROVIDER=resend`, with its webhook at `/api/webhooks/resend`. Check the provider's policy on outreach before using it for contacts who have not opted in.
+Resend's acceptable use policy forbids cold outreach, purchased lists and scraped data, so campaigns go through your own SMTP mailboxes. Raven uses Resend only for system email to the team: set `RESEND_API_KEY` and `RAVEN_NOTIFY_FROM` (for example `Raven <bildirim@raven.wienerlabs.xyz>` on a domain verified in Resend) and reply alerts go to the notification address in Settings without touching the outreach mailboxes. `EMAIL_PROVIDER=resend` still exists for audiences that opted in.
 
 ## Scheduling
 

@@ -3,6 +3,7 @@ import type { Database } from '@/lib/db'
 import { events } from '@/lib/db/schema'
 import { baseUrl, emailProvider, hasAi, readSenders, type SenderConfig } from '@/lib/env'
 import type { AppSettings } from '@/lib/settings'
+import { notificationChannel, systemSender } from '@/lib/notify'
 
 export interface ReadinessItem {
   key: string
@@ -88,6 +89,8 @@ export function environmentSummary() {
     ai: hasAi(),
     aiModel: process.env.RAVEN_AI_MODEL?.trim() || 'claude-opus-5-5',
     cronSecret: Boolean(process.env.CRON_SECRET),
+    notify: notificationChannel(),
+    notifyFrom: systemSender()?.email ?? null,
     slack: Boolean(process.env.SLACK_WEBHOOK_URL),
   }
 }

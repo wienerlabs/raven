@@ -66,6 +66,7 @@ export default async function SettingsPage() {
             <Line label="Zamanlayıcı (CRON_SECRET)" value={env.cronSecret ? 'Tanımlı' : 'Tanımlı değil'} ok={env.cronSecret} />
             <Line label="AI üretimi" value={env.ai ? `Açık (${env.aiModel})` : 'ANTHROPIC_API_KEY yok'} ok={env.ai} />
             <Line label="WhatsApp" value={whatsapp.mode === 'cloud' ? 'Otomatik gönderim (Cloud API)' : whatsapp.businessNumber ? 'Tıkla-yaz açık, gönderim elle' : 'Elle gönderim'} ok={whatsapp.mode === 'cloud' || Boolean(whatsapp.businessNumber)} />
+            <Line label="Ekip bildirim e-postası" value={env.notify === 'resend' ? `Resend (${env.notifyFrom})` : env.notify === 'campaign' ? 'Kampanya kutusundan' : 'Kapalı'} ok={env.notify !== 'none'} />
             <Line label="Slack bildirimi" value={env.slack ? 'Açık' : 'Kapalı'} ok={env.slack} />
           </div>
           {env.sendersError ? <p className="mt-3 text-xs text-ink">RAVEN_SENDERS okunamadı: {env.sendersError}</p> : null}
